@@ -78,6 +78,25 @@ const STRINGS = {
     whatToFollowUp: "What to follow up on", remindMeIn: "Remind me in",
     jump: "Jump", noSessionsFound: "No hourly sessions found for this period.",
     billingTypeLabel: "Billing Type", moreClients: "more",
+    draftEmail: "Draft Email →", yourNumbers: "Your Numbers",
+    calculate: "Calculate →", aiPricingAdvice: "AI Pricing Advice",
+    polishTestimonial: "Polish Testimonial →", polishedTestimonial: "Polished Testimonial",
+    savedCards: "Saved Cards", brainDump: "Brain dump your tasks",
+    pickTop3: "Pick My Top 3 →", yourTop3: "Your Top 3",
+    revenueProjection: "Revenue Projection", revenueDesc: "Based on logged sessions × each client's hourly rate.",
+    hoursByClient: "Hours by Client", billableTime: "Billable time across your practice",
+    recentActivity: "Recent Activity", clientNameLabel: "Client name",
+    createClient: "Create Client", sessionLog: "Session Log",
+    noSessionsYet: "No sessions yet.", situation: "Situation",
+    additionalContext: "Additional context", rawFeedback: "Raw Feedback",
+    skillNiche: "Your Skill / Niche", monthlyExpenses: "Monthly Expenses ($)",
+    desiredProfit: "Desired Profit ($)", workingDays: "Working Days / Month",
+    billableHoursDay: "Billable Hours / Day", commandPlaceholder: "Jump to client, module, or action…",
+    noResults: "No results for", keyboardShortcuts: "Keyboard Shortcuts",
+    clientWorkspace: "Client workspace", closingTip: "Close tabs anytime — clients stay here until you delete them.",
+    noActivity: "No activity yet.", noClients: "No clients yet.",
+    startTimer: "Start a focus timer on any client to see time accumulate here.",
+    customDuration: "Custom",
   },
   ar: {
     appName: "بنش", appSub: "منصة العمل الحر",
@@ -142,11 +161,29 @@ const STRINGS = {
     whatToFollowUp: "ماذا تريد متابعته", remindMeIn: "ذكّرني بعد",
     jump: "انتقل", noSessionsFound: "لا توجد جلسات بالساعة في هذه الفترة.",
     billingTypeLabel: "نوع الفوترة", moreClients: "مزيد",
+    draftEmail: "صياغة البريد →", yourNumbers: "أرقامك",
+    calculate: "احسب →", aiPricingAdvice: "نصيحة التسعير بالذكاء الاصطناعي",
+    polishTestimonial: "صقل التوصية →", polishedTestimonial: "التوصية المصقولة",
+    savedCards: "البطاقات المحفوظة", brainDump: "أفرغ مهامك هنا",
+    pickTop3: "اختر أفضل 3 →", yourTop3: "أفضل 3 مهام",
+    revenueProjection: "توقعات الإيراد", revenueDesc: "بناءً على الجلسات المسجلة × الأجر الساعي لكل عميل.",
+    hoursByClient: "الساعات حسب العميل", billableTime: "الوقت القابل للفوترة في مشاريعك",
+    recentActivity: "النشاط الأخير", clientNameLabel: "اسم العميل",
+    createClient: "إنشاء عميل", sessionLog: "سجل الجلسات",
+    noSessionsYet: "لا توجد جلسات بعد.", situation: "الوضع",
+    additionalContext: "سياق إضافي", rawFeedback: "الملاحظات الخام",
+    skillNiche: "مجالك / تخصصك", monthlyExpenses: "المصاريف الشهرية ($)",
+    desiredProfit: "الربح المطلوب ($)", workingDays: "أيام العمل / الشهر",
+    billableHoursDay: "الساعات القابلة للفوترة / يوم", commandPlaceholder: "انتقل إلى عميل أو وحدة أو إجراء...",
+    noResults: "لا نتائج لـ", keyboardShortcuts: "اختصارات لوحة المفاتيح",
+    clientWorkspace: "مساحة العمل", closingTip: "أغلق التبويبات في أي وقت — العملاء يبقون هنا حتى تحذفهم.",
+    noActivity: "لا يوجد نشاط بعد.", noClients: "لا يوجد عملاء بعد.",
+    startTimer: "ابدأ مؤقت التركيز لأي عميل لرؤية الوقت هنا.",
+    customDuration: "مخصص",
   },
 };
 function t(key) {
-  const isRTL = document.documentElement.dir === "rtl";
-  const lang = isRTL ? STRINGS.ar : STRINGS.en;
+  const lang = localStorage.getItem("stratloom_dir") === "rtl" ? STRINGS.ar : STRINGS.en;
   return lang[key] ?? STRINGS.en[key] ?? key;
 }
 
@@ -438,6 +475,8 @@ const GlobalStyles = () => (
     html[dir="rtl"] .palette-overlay{direction:rtl}
     html[dir="rtl"] .scroll-area{direction:rtl}
     html[dir="rtl"] .tab{direction:ltr}
+    html[dir="rtl"] .nav-item{text-align:right !important}
+    html[dir="rtl"] .letter-avatar{direction:ltr !important;unicode-bidi:isolate;display:flex !important;align-items:center !important;justify-content:center !important}
     @media (max-width:768px) { html[dir="rtl"] .main-offset{margin-right:0 !important} }
   `}</style>
 );
@@ -581,6 +620,7 @@ const emptyModuleState = () => ({
   timer: {
     billingMode: "pomodoro", mode: "focus", seconds: 25 * 60, running: false,
     targetSeconds: 60 * 60, elapsedSeconds: 0, fixedAmount: "", currentProject: "", sessions: [],
+    runStartSeconds: 25 * 60,
   },
   comms: { situation: "Scope creep — added work without extra pay", context: "", output: "", streaming: false, error: "" },
   rate: { exp: "", profit: "", days: "", hours: "", skill: "", rates: null, advice: "", streaming: false, error: "", invoiceRange: "this-month", invoiceMeta: null },
@@ -813,15 +853,15 @@ const CommsModule = ({ client, patch }) => {
     <div className="fade-up">
       <ModuleHeader icon={<Mail size={22} />} title={t("comms")} description={`${t("commsDesc")} ${client.name}.`} badge={{ label: t("aiPowered"), tone: "blue" }} />
       <Card>
-        <Field label="Situation">
+        <Field label={t("situation")}>
           <select value={s.situation} onChange={e => patch({ comms: { ...s, situation: e.target.value } })} style={{ width: "100%", padding: "11px 14px", fontSize: 14, color: T.text, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.radius, fontFamily: T.sans }}>
             {SITUATIONS.map(sit => <option key={sit} value={sit}>{sit}</option>)}
           </select>
         </Field>
-        <Field label="Additional context" hint="optional">
+        <Field label={t("additionalContext")} hint="optional">
           <TextArea rows={3} value={s.context} onChange={e => patch({ comms: { ...s, context: e.target.value } })} placeholder="Any specific details, amounts, dates, tone preferences..." />
         </Field>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>Draft Email →</PrimaryBtn></div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>{t("draftEmail")}</PrimaryBtn></div>
         <ErrorBanner message={s.error} onDismiss={() => patch({ comms: { ...s, error: "" } })} />
       </Card>
       <div style={{ marginTop: 20 }}>
@@ -863,13 +903,13 @@ const RateModule = ({ client, patch, onOpenInvoice }) => {
       <Card>
         <div style={{ fontSize: 12, fontWeight: 700, color: T.subtext, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 12 }}>Your Numbers</div>
         <div className="g2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-          <Field label="Monthly Expenses ($)"><TextInput value={s.exp} onChange={e => patch({ rate: { ...s, exp: e.target.value } })} type="number" placeholder="4500" /></Field>
-          <Field label="Desired Profit ($)"><TextInput value={s.profit} onChange={e => patch({ rate: { ...s, profit: e.target.value } })} type="number" placeholder="3000" /></Field>
-          <Field label="Working Days / Month"><TextInput value={s.days} onChange={e => patch({ rate: { ...s, days: e.target.value } })} type="number" placeholder="20" /></Field>
-          <Field label="Billable Hours / Day"><TextInput value={s.hours} onChange={e => patch({ rate: { ...s, hours: e.target.value } })} type="number" placeholder="6" /></Field>
+          <Field label={t("monthlyExpenses")}><TextInput value={s.exp} onChange={e => patch({ rate: { ...s, exp: e.target.value } })} type="number" placeholder="4500" /></Field>
+          <Field label={t("desiredProfit")}><TextInput value={s.profit} onChange={e => patch({ rate: { ...s, profit: e.target.value } })} type="number" placeholder="3000" /></Field>
+          <Field label={t("workingDays")}><TextInput value={s.days} onChange={e => patch({ rate: { ...s, days: e.target.value } })} type="number" placeholder="20" /></Field>
+          <Field label={t("billableHoursDay")}><TextInput value={s.hours} onChange={e => patch({ rate: { ...s, hours: e.target.value } })} type="number" placeholder="6" /></Field>
         </div>
-        <Field label="Your Skill / Niche"><TextInput value={s.skill} onChange={e => patch({ rate: { ...s, skill: e.target.value } })} placeholder="Brand identity designer, React developer..." /></Field>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}><PrimaryBtn onClick={go} loading={s.streaming}>Calculate →</PrimaryBtn></div>
+        <Field label={t("skillNiche")}><TextInput value={s.skill} onChange={e => patch({ rate: { ...s, skill: e.target.value } })} placeholder="Brand identity designer, React developer..." /></Field>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}><PrimaryBtn onClick={go} loading={s.streaming}>{t("calculate")}</PrimaryBtn></div>
         <ErrorBanner message={s.error} onDismiss={() => patch({ rate: { ...s, error: "" } })} />
       </Card>
       {s.rates && (
@@ -924,10 +964,10 @@ const TestimonialsModule = ({ client, patch }) => {
           <Field label="Client Name" hint="optional"><TextInput value={s.name} onChange={e => patch({ testimonials: { ...s, name: e.target.value } })} placeholder={client.name} /></Field>
           <Field label="Project / Context" hint="optional"><TextInput value={s.project} onChange={e => patch({ testimonials: { ...s, project: e.target.value } })} placeholder="Website redesign" /></Field>
         </div>
-        <Field label="Raw Feedback">
+        <Field label={t("rawFeedback")}>
           <TextArea rows={5} value={s.raw} onChange={e => patch({ testimonials: { ...s, raw: e.target.value } })} placeholder="Paste their email, message, or notes here..." />
         </Field>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>Polish Testimonial →</PrimaryBtn></div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>{t("polishTestimonial")}</PrimaryBtn></div>
         <ErrorBanner message={s.error} onDismiss={() => patch({ testimonials: { ...s, error: "" } })} />
       </Card>
       {(s.polished || s.streaming) && (
@@ -1003,10 +1043,10 @@ const PrioritizerModule = ({ client, patch }) => {
             {ENERGY.map(e => { const active = s.energy === e.key; return <button key={e.key} onClick={() => patch({ prioritizer: { ...s, energy: e.key } })} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 999, background: active ? e.bg : T.surface, border: `1.5px solid ${active ? e.fg + "44" : T.border}`, color: active ? e.fg : T.subtext, fontSize: 13, fontWeight: 600, transition: "all .15s ease" }}>{e.icon}{e.label}</button>; })}
           </div>
         </div>
-        <Field label="Brain dump your tasks">
+        <Field label={t("brainDump")}>
           <TextArea rows={6} value={s.tasks} onChange={e => patch({ prioritizer: { ...s, tasks: e.target.value } })} placeholder={"Reply to client email\nFinish homepage design\nSend invoice to Acme\nUpdate portfolio..."} />
         </Field>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>Pick My Top 3 →</PrimaryBtn></div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>{t("pickTop3")}</PrimaryBtn></div>
         <ErrorBanner message={s.error} onDismiss={() => patch({ prioritizer: { ...s, error: "" } })} />
       </Card>
       <div style={{ marginTop: 20 }}>
@@ -1091,7 +1131,7 @@ const Dashboard = ({ clients, onOpenClient, onNewClient, onOpenModule }) => {
           <div style={{ fontSize:15, fontWeight:700, color:T.text, marginBottom:16 }}>Recent Activity</div>
           {activity.length===0?<div style={{ padding:"20px 0", textAlign:"center", color:T.muted, fontSize:13 }}>No activity yet.</div>:(
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {activity.map(e=>{ const tc=toneColors[e.tone]||toneColors.lilac; return <button key={e.id} onClick={()=>onOpenClient(e.client.id)} className="nav-item card-hover" style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 12px", borderRadius:T.radius, textAlign:"left", background:T.bgSoft }}><div style={{ width:28, height:28, borderRadius:"50%", background:tc.bg, color:tc.fg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{e.icon}</div><div style={{ minWidth:0, flex:1 }}><div style={{ fontSize:12.5, fontWeight:600, color:T.text }}>{e.title} · <span style={{ color:T.muted, fontWeight:500 }}>{e.client.name}</span></div><div style={{ fontSize:11.5, color:T.muted, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.preview}</div></div></button>; })}
+              {activity.map(e=>{ const tc=toneColors[e.tone]||toneColors.lilac; return <button key={e.id} onClick={()=>onOpenClient(e.client.id)} className="nav-item card-hover" style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 12px", borderRadius:T.radius, textAlign:"left", background:T.bgSoft }}><div className="letter-avatar" style={{ width:28, height:28, borderRadius:"50%", background:tc.bg, color:tc.fg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{e.icon}</div><div style={{ minWidth:0, flex:1 }}><div style={{ fontSize:12.5, fontWeight:600, color:T.text }}>{e.title} · <span style={{ color:T.muted, fontWeight:500 }}>{e.client.name}</span></div><div style={{ fontSize:11.5, color:T.muted, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.preview}</div></div></button>; })}
             </div>
           )}
         </Card>
@@ -1109,7 +1149,7 @@ const Dashboard = ({ clients, onOpenClient, onNewClient, onOpenModule }) => {
               {CLIENT_STATUSES.map(st=>{ const count=clients.filter(c=>(c.status||"prospect")===st.key).length; if(!count) return null; return <div key={st.key} style={{ flex:count, background:st.fg, opacity:0.7 }}/>; })}
             </div>
             <div style={{ display:"flex", flexDirection:"column" }}>
-              {CLIENT_STATUSES.map((st,si)=>{ const group=clients.filter(c=>(c.status||"prospect")===st.key); if(!group.length) return null; return <div key={st.key}><div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 0 6px", borderTop:si>0?`1px solid ${T.border}`:"none" }}><span style={{ width:8, height:8, borderRadius:"50%", background:st.fg, display:"inline-block" }}/><span style={{ fontSize:11, fontWeight:700, color:st.fg, letterSpacing:"0.06em", textTransform:"uppercase" }}>{st.label}</span><span style={{ fontSize:11, color:T.muted }}>{group.length}</span></div>{group.map(c=>{ const hours=(c.modules.timer.sessions.reduce((a,s)=>a+s.minutes,0)/60).toFixed(1); const proposals=c.modules.proposals.count; return <button key={c.id} onClick={()=>onOpenClient(c.id)} className="nav-item" style={{ display:"flex", alignItems:"center", gap:12, width:"100%", padding:"9px 10px 9px 18px", borderRadius:10, textAlign:"left", borderLeft:`3px solid ${st.fg}22`, marginBottom:2 }}><div style={{ width:28, height:28, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ fontSize:13.5, fontWeight:500, color:T.text, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</span><span style={{ fontSize:11.5, color:T.muted, display:"flex", alignItems:"center", gap:4 }}><FileText size={11}/> {proposals}</span><span style={{ fontSize:11.5, color:T.muted, display:"flex", alignItems:"center", gap:4 }}><Clock size={11}/> {hours}h</span>{c.modules.timer.running&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}<span style={{ color:T.muted, fontSize:12 }}>→</span></button>; })}</div>; })}
+              {CLIENT_STATUSES.map((st,si)=>{ const group=clients.filter(c=>(c.status||"prospect")===st.key); if(!group.length) return null; return <div key={st.key}><div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 0 6px", borderTop:si>0?`1px solid ${T.border}`:"none" }}><span style={{ width:8, height:8, borderRadius:"50%", background:st.fg, display:"inline-block" }}/><span style={{ fontSize:11, fontWeight:700, color:st.fg, letterSpacing:"0.06em", textTransform:"uppercase" }}>{st.label}</span><span style={{ fontSize:11, color:T.muted }}>{group.length}</span></div>{group.map(c=>{ const hours=(c.modules.timer.sessions.reduce((a,s)=>a+s.minutes,0)/60).toFixed(1); const proposals=c.modules.proposals.count; return <button key={c.id} onClick={()=>onOpenClient(c.id)} className="nav-item" style={{ display:"flex", alignItems:"center", gap:12, width:"100%", padding:"9px 10px 9px 18px", borderRadius:10, textAlign:"left", borderLeft:`3px solid ${st.fg}22`, marginBottom:2 }}><div className="letter-avatar" style={{ width:28, height:28, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ fontSize:13.5, fontWeight:500, color:T.text, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</span><span style={{ fontSize:11.5, color:T.muted, display:"flex", alignItems:"center", gap:4 }}><FileText size={11}/> {proposals}</span><span style={{ fontSize:11.5, color:T.muted, display:"flex", alignItems:"center", gap:4 }}><Clock size={11}/> {hours}h</span>{c.modules.timer.running&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}<span style={{ color:T.muted, fontSize:12 }}>→</span></button>; })}</div>; })}
             </div>
           </Card>
         </div>
@@ -1452,7 +1492,7 @@ const Sidebar = ({ view, activeModule, onGoDashboard, onSelectModule, clients, o
           {clients.map(c=>{ const active=view==="client"&&activeClientId===c.id; const isOpen=openSet.has(c.id); const timerRunning=c.modules.timer.running; const st=getStatus(c); return (
             <div key={c.id} className={`nav-item sidebar-client-row ${active?"active":""}`} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 8px 8px 10px", borderRadius:10, background:active?T.bgSoft:"transparent", transition:"background .15s ease", position:"relative" }}>
               <button onClick={()=>{ onSelectClient(c.id); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, textAlign:"left", background:"transparent", padding:0 }}>
-                <div style={{ width:26, height:26, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
+                <div className="letter-avatar" style={{ width:26, height:26, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
                 <div style={{ minWidth:0, flex:1 }}>
                   <div style={{ fontSize:12.5, fontWeight:active?600:500, color:isOpen?T.text:T.subtext, letterSpacing:"-0.005em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.name}</div>
                   <div style={{ fontSize:10, color:st.fg, fontWeight:600, marginTop:1 }}>{st.label}</div>
@@ -1466,7 +1506,7 @@ const Sidebar = ({ view, activeModule, onGoDashboard, onSelectModule, clients, o
       )}
       <div style={{ flex:1 }}/>
       <div style={{ padding:12, background:T.bgSoft, border:`1px solid ${T.border}`, borderRadius:T.radius, marginTop:16 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:T.text, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:4 }}>{clients.length} {clients.length===1?"Client":"Clients"}</div>
+        <div style={{ fontSize:11, fontWeight:700, color:T.text, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:4 }}>{clients.length} {t("clients")}</div>
         <div style={{ fontSize:11.5, color:T.subtext, lineHeight:1.5 }}>Close tabs anytime — clients stay here until you delete them.</div>
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
@@ -1534,7 +1574,7 @@ const TabBar = ({ view, clients, activeClientId, onSelectClient, onCloseClient, 
         const dragClass=dragOver?.id===c.id?(dragOver.side==="left"?"drag-over-left":"drag-over-right"):"";
         return (
           <div key={c.id} className={`tab tab-slide ${active?"active":""} ${isDragging?"dragging":""} ${isClosing?"tab-closing":""} ${isNotifying?"notify-pulse":""} ${dragClass}`} draggable={!isEditing&&!isClosing} onDragStart={e=>onDragStart(e,c)} onDragOver={e=>onDragOver(e,c)} onDragLeave={e=>onDragLeave(e,c)} onDrop={e=>onDrop(e,c)} onDragEnd={onDragEnd} onClick={()=>!isEditing&&!isClosing&&onSelectClient(c.id)} onDoubleClick={()=>startRename(c)} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px 11px", background:active?T.surface:"transparent", borderTop:`1px solid ${active?T.border:"transparent"}`, borderLeft:`1px solid ${active?T.border:"transparent"}`, borderRight:`1px solid ${active?T.border:"transparent"}`, borderBottom:active?`1px solid ${T.surface}`:"1px solid transparent", marginBottom:-1, borderTopLeftRadius:10, borderTopRightRadius:10, cursor:isEditing?"text":(isDragging?"grabbing":"pointer"), fontSize:13, fontWeight:active?600:500, color:active?T.text:T.subtext, maxWidth:200, minWidth:100, position:"relative", letterSpacing:"-0.005em" }}>
-            <div style={{ width:18, height:18, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
+            <div className="letter-avatar" style={{ width:18, height:18, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
             {isEditing?<input ref={inputRef} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={commitRename} onKeyDown={e=>{ if(e.key==="Enter") commitRename(); else if(e.key==="Escape") setEditingId(null); e.stopPropagation(); }} onClick={e=>e.stopPropagation()} style={{ border:"none", background:"transparent", outline:"none", fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text, padding:0, flex:1, minWidth:0, width:120 }}/>:<span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", flex:1, minWidth:0 }}>{c.name}</span>}
             {c.modules.timer.running&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}
             <button className="close-btn" onClick={e=>{ e.stopPropagation(); onCloseClient(c.id); }} style={{ width:18, height:18, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:T.subtext, flexShrink:0 }} title="Close tab (⌘W) — client stays in sidebar">×</button>
@@ -1550,7 +1590,7 @@ const TabBar = ({ view, clients, activeClientId, onSelectClient, onCloseClient, 
             <>
               <div style={{ position:"fixed", inset:0, zIndex:199 }} onClick={()=>setOverflowOpen(false)}/>
               <div style={{ position:"fixed", top:overflowPos.top, left:overflowPos.left, background:T.surface, border:`1px solid ${T.border}`, borderRadius:T.radius, boxShadow:T.shadowLg, zIndex:200, minWidth:220, maxHeight:360, overflowY:"auto" }}>
-                {overflowClients.map(c=>{ const active=view==="client"&&activeClientId===c.id; return <button key={c.id} onClick={()=>{ onSelectClient(c.id); setOverflowOpen(false); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 14px", background:active?T.bgSoft:"transparent", border:"none", cursor:"pointer", textAlign:"left", fontSize:13, fontWeight:active?600:500, color:T.text }} className="nav-item"><div style={{ width:20, height:20, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</span>{c.modules.timer.running&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green }}/>}<button onClick={e=>{ e.stopPropagation(); onCloseClient(c.id); setOverflowOpen(false); }} style={{ color:T.muted, fontSize:14, padding:"0 2px", flexShrink:0 }} className="nav-item">×</button></button>; })}
+                {overflowClients.map(c=>{ const active=view==="client"&&activeClientId===c.id; return <button key={c.id} onClick={()=>{ onSelectClient(c.id); setOverflowOpen(false); }} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 14px", background:active?T.bgSoft:"transparent", border:"none", cursor:"pointer", textAlign:"left", fontSize:13, fontWeight:active?600:500, color:T.text }} className="nav-item"><div className="letter-avatar" style={{ width:20, height:20, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</span>{c.modules.timer.running&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green }}/>}<button onClick={e=>{ e.stopPropagation(); onCloseClient(c.id); setOverflowOpen(false); }} style={{ color:T.muted, fontSize:14, padding:"0 2px", flexShrink:0 }} className="nav-item">×</button></button>; })}
               </div>
             </>
           )}
@@ -1574,10 +1614,10 @@ const NewClientModal = ({ onCreate, onCancel }) => {
           <IconBadge size={40}><UserPlus size={18}/></IconBadge>
           <div><h2 style={{ fontSize:20, fontWeight:700, letterSpacing:"-0.02em", color:T.text }}>{t("newClient")}</h2><p style={{ fontSize:12.5, color:T.subtext, marginTop:2 }}>Opens in a new tab with its own workspace.</p></div>
         </div>
-        <Field label="Client name"><TextInput ref={inputRef} value={name} onChange={e=>setName(e.target.value)} placeholder="Acme Corp, Sarah Johnson..." /></Field>
+        <Field label={t("clientNameLabel")}><TextInput ref={inputRef} value={name} onChange={e=>setName(e.target.value)} placeholder="Acme Corp, Sarah Johnson..." /></Field>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:20 }}>
           <GhostBtn onClick={onCancel}>{t("cancel")}</GhostBtn>
-          <PrimaryBtn onClick={()=>{ const nm=name.trim(); if(nm) onCreate(nm); }}>Create Client</PrimaryBtn>
+          <PrimaryBtn onClick={()=>{ const nm=name.trim(); if(nm) onCreate(nm); }}>{t("createClient")}</PrimaryBtn>
         </div>
       </div>
     </div>
@@ -1591,7 +1631,7 @@ const ConfirmDeleteModal = ({ client, onConfirm, onCancel }) => {
     <div className="new-client-overlay" onClick={onCancel}>
       <div onClick={e=>e.stopPropagation()} className="fade-up" style={{ background:T.surface, borderRadius:T.radiusLg, padding:28, width:400, maxWidth:"92vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:18 }}>
-          <div style={{ width:44, height:44, borderRadius:"50%", background:T.pillRoseBg, color:T.pillRoseFg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Trash2 size={18}/></div>
+          <div className="letter-avatar" style={{ width:44, height:44, borderRadius:"50%", background:T.pillRoseBg, color:T.pillRoseFg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Trash2 size={18}/></div>
           <div style={{ flex:1 }}><h2 style={{ fontSize:20, fontWeight:700, letterSpacing:"-0.02em", color:T.text }}>Delete {client.name}?</h2><p style={{ fontSize:12.5, color:T.subtext, marginTop:3 }}>This permanently removes the client and all their data.</p></div>
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
@@ -1621,7 +1661,7 @@ const CommandPalette = ({ open, onClose, clients, activeClientId, onOpenClient, 
   const systemItems = [
     { id:"dashboard", icon:<LayoutDashboard size={15}/>, label:"Go to Dashboard", sub:"Navigation", action:()=>{ onGoDashboard(); onClose(); } },
     { id:"new-client", icon:<Plus size={15}/>, label:t("newClient"), sub:"Action", action:()=>{ onNewClient(); onClose(); } },
-    { id:"shortcuts", icon:<Keyboard size={15}/>, label:"Keyboard Shortcuts", sub:"Help", action:()=>{ onShowShortcuts(); onClose(); } },
+    { id:"shortcuts", icon:<Keyboard size={15}/>, label:t("keyboardShortcuts"), sub:"Help", action:()=>{ onShowShortcuts(); onClose(); } },
   ];
   const all = [...systemItems,...moduleItems,...clientItems];
   const filtered = query ? all.filter(i=>i.label.toLowerCase().includes(query.toLowerCase())) : all;
@@ -1640,7 +1680,7 @@ const CommandPalette = ({ open, onClose, clients, activeClientId, onOpenClient, 
               <div style={{ flex:1 }}><div style={{ fontSize:13.5, fontWeight:500, color:T.text }}>{item.label}</div><div style={{ fontSize:11.5, color:T.muted, marginTop:1 }}>{item.sub}</div></div>
             </button>
           ))}
-          {filtered.length===0&&<div style={{ padding:"32px 18px", textAlign:"center", color:T.muted, fontSize:13.5 }}>No results for "{query}"</div>}
+          {filtered.length===0&&<div style={{ padding:"32px 18px", textAlign:"center", color:T.muted, fontSize:13.5 }}>{t("noResults")} "{query}"</div>}
         </div>
       </div>
     </div>
@@ -1693,10 +1733,44 @@ const ENERGY_LEVELS = [
   { key: "high", label: "High", bg: T.pillMintBg, fg: T.pillMintFg, icon: <Flame size={14} /> },
 ];
 
+const CustomDurationModal = ({ currentMinutes, onSet, onClose }) => {
+  const [value, setValue] = useState(String(currentMinutes));
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
+  useEffect(() => { const h = e => { if (e.key === "Escape") onClose(); if (e.key === "Enter") submit(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [value]);
+  const submit = () => { const n = parseInt(value, 10); if (!isNaN(n) && n > 0) { onSet(n * 60); onClose(); } };
+  return (
+    <div className="new-client-overlay" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="fade-up" style={{ background: T.surface, borderRadius: T.radiusLg, padding: 28, width: 360, maxWidth: "90vw", border: `1px solid ${T.border}`, boxShadow: T.shadowLg }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <IconBadge size={40}><Clock size={18} /></IconBadge>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", color: T.text }}>Custom Duration</h2>
+            <p style={{ fontSize: 12.5, color: T.subtext, marginTop: 2 }}>Set target in minutes</p>
+          </div>
+        </div>
+        <Field label="Duration (minutes)">
+          <TextInput ref={inputRef} type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="90" min="1" />
+        </Field>
+        <div style={{ display: "flex", gap: 6, marginTop: 12, marginBottom: 20, flexWrap: "wrap" }}>
+          {[30, 45, 60, 90, 120].map(m => (
+            <button key={m} onClick={() => setValue(String(m))} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: `1.5px solid ${value === String(m) ? T.text : T.border}`, background: value === String(m) ? T.text : T.surface, color: value === String(m) ? T.bgInverse : T.subtext, transition: "all .15s" }} className="nav-item">{m}m</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <GhostBtn onClick={onClose}>{t("cancel")}</GhostBtn>
+          <PrimaryBtn onClick={submit}>Set Duration</PrimaryBtn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TimerModule = ({ client, patch, pushToast }) => {
   const s = client.modules.timer;
   const isBillable = s.billingMode === "billable";
   const isFixed = s.billingMode === "fixed";
+  const [showCustomDuration, setShowCustomDuration] = useState(false);
 
   let total, progress, mm, ss, ringColor, ringOver, modeLabel, modeTone;
   if (isBillable || isFixed) {
@@ -1732,7 +1806,33 @@ const TimerModule = ({ client, patch, pushToast }) => {
     else if (newMode === "fixed") patch({ timer: { ...s, billingMode: "fixed", running: false, elapsedSeconds: 0, mode: "focus", seconds: 25*60 } });
     else patch({ timer: { ...s, billingMode: "pomodoro", running: false, elapsedSeconds: 0, seconds: 25*60, mode: "focus" } });
   };
-  const toggleRun = () => patch({ timer: { ...s, running: !s.running } });
+  const toggleRun = () => {
+    if (s.running && !isBillable && !isFixed) {
+      // Pausing Pomodoro — log time spent in this run
+      const startSec = s.runStartSeconds ?? (s.mode === "focus" ? 25 * 60 : 5 * 60);
+      const elapsedSec = startSec - s.seconds;
+      if (elapsedSec >= 10) {
+        const loggedMinutes = Math.max(1, Math.round(elapsedSec / 60));
+        const sess = {
+          id: Date.now() + Math.random(),
+          project: s.currentProject.trim() || "Focus Session",
+          minutes: loggedMinutes,
+          seconds: elapsedSec,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          dateISO: new Date().toISOString(),
+          billable: true,
+        };
+        patch({ timer: { ...s, running: false, sessions: [sess, ...s.sessions] } });
+        return;
+      }
+      patch({ timer: { ...s, running: false } });
+    } else if (!s.running && !isBillable && !isFixed) {
+      // Starting Pomodoro — record seconds at start of this run
+      patch({ timer: { ...s, running: true, runStartSeconds: s.seconds } });
+    } else {
+      patch({ timer: { ...s, running: !s.running } });
+    }
+  };
   const reset = () => {
     if (isBillable || isFixed) patch({ timer: { ...s, running: false, elapsedSeconds: 0 } });
     else patch({ timer: { ...s, running: false, seconds: s.mode === "focus" ? 25*60 : 5*60 } });
@@ -1741,15 +1841,27 @@ const TimerModule = ({ client, patch, pushToast }) => {
     if (s.elapsedSeconds < 1) { patch({ timer: { ...s, running: false, elapsedSeconds: 0 } }); return; }
     const loggedMinutes = Math.max(1, Math.round(s.elapsedSeconds / 60));
     const sess = { id: Date.now() + Math.random(), project: s.currentProject.trim() || "Untitled", minutes: loggedMinutes, seconds: s.elapsedSeconds, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), dateISO: new Date().toISOString(), billable: !isFixed, fixed: isFixed, fixedAmount: isFixed ? (parseFloat(s.fixedAmount) || 0) : null, targetMinutes: Math.round(s.targetSeconds / 60) };
-    patch({ timer: { ...s, running: false, elapsedSeconds: 0, sessions: [sess, ...s.sessions] } });
+    const timerUpdate = { timer: { ...s, running: false, elapsedSeconds: 0, sessions: [sess, ...s.sessions] } };
+
+    // If fixed price — also push as a line item into Invoicing
+    if (isFixed && sess.fixedAmount) {
+      const inv = client.modules.invoicing || emptyModuleState().invoicing;
+      const newItem = { id: `li_${Date.now()}`, description: sess.project || "Fixed Price Project", amount: String(sess.fixedAmount) };
+      const existingItems = (inv.lineItems || []).filter(li => li.description || li.amount);
+      patch({ ...timerUpdate, invoicing: { ...inv, billingType: "fixed", lineItems: [...existingItems, newItem] } });
+    } else {
+      patch(timerUpdate);
+    }
+
     const dispMm = Math.floor(s.elapsedSeconds / 60); const dispSs = s.elapsedSeconds % 60;
     const display = dispMm > 0 ? `${dispMm}m ${dispSs}s` : `${dispSs}s`;
     pushToast?.({ icon: <Square size={14} />, title: t("sessionLogged"), subtitle: isFixed ? `${sess.project} · ${display}${sess.fixedAmount ? ` · $${sess.fixedAmount} fixed` : ""}` : `${sess.project} · ${display} (${loggedMinutes}m billable)` });
   };
   const setTarget = (sec) => { if (s.running) return; patch({ timer: { ...s, targetSeconds: sec, elapsedSeconds: 0 } }); };
-  const onCustomTarget = () => { const mins = prompt("Target duration in minutes:", String(Math.round(s.targetSeconds / 60))); const n = parseInt(mins, 10); if (!isNaN(n) && n > 0) setTarget(n * 60); };
+  const onCustomTarget = () => { if (!s.running) setShowCustomDuration(true); };
 
   return (
+  <>
     <div className="fade-up">
       <ModuleHeader icon={<Timer size={22} />} title={t("timer")} description={isBillable ? `Billable time tracking for ${client.name}.` : `${t("timerDesc")} ${client.name}.`} />
       <div style={{ display: "inline-flex", gap: 0, marginBottom: 20, padding: 4, background: T.bgSoft, borderRadius: 999, border: `1px solid ${T.border}` }}>
@@ -1760,8 +1872,11 @@ const TimerModule = ({ client, patch, pushToast }) => {
       </div>
       <div className="g3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 28 }}>
         <StatCard bg={T.lilac} icon={<Clock size={18} />} label={t("clientTotal")} value={`${totalMin}m`} delta="billable" />
-        <StatCard bg={T.peach} icon={<Layers size={18} />} label="Sessions" value={s.sessions.length} delta="completed" />
-        <StatCard bg={T.sky} icon={isFixed ? <DollarSign size={18} /> : isBillable ? <DollarSign size={18} /> : (s.mode === "focus" ? <Target size={18} /> : <Coffee size={18} />)} label={isFixed ? t("fixedFee") : isBillable ? t("target") : t("mode")} value={isFixed ? (s.fixedAmount ? `$${s.fixedAmount}` : "—") : isBillable ? targetDisplay : (s.mode === "focus" ? "Focus" : "Break")} delta={isFixed ? "flat rate" : `${mm}:${ss} ${s.running ? "running" : "paused"}`} />
+        <StatCard bg={T.peach} icon={<Layers size={18} />} label="Sessions" value={isFixed ? s.sessions.filter(x=>x.fixed).length : isBillable ? s.sessions.filter(x=>!x.fixed).length : s.sessions.filter(x=>!x.fixed).length} delta="completed" />
+        {(() => {
+          const totalFixed = s.sessions.filter(x => x.fixed).reduce((a, x) => a + (x.fixedAmount || 0), 0);
+          return <StatCard bg={T.sky} icon={isFixed ? <DollarSign size={18} /> : isBillable ? <DollarSign size={18} /> : (s.mode === "focus" ? <Target size={18} /> : <Coffee size={18} />)} label={isFixed ? t("fixedFee") : isBillable ? t("target") : t("mode")} value={isFixed ? (totalFixed ? `$${totalFixed.toLocaleString()}` : "—") : isBillable ? targetDisplay : (s.mode === "focus" ? "Focus" : "Break")} delta={isFixed ? `${s.sessions.filter(x=>x.fixed).length} session${s.sessions.filter(x=>x.fixed).length!==1?"s":""}` : `${mm}:${ss} ${s.running ? "running" : "paused"}`} />;
+        })()}
       </div>
       <div className="timer-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
         <Card padding={28}>
@@ -1801,10 +1916,23 @@ const TimerModule = ({ client, patch, pushToast }) => {
           </div>
         </Card>
         <Card>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 12 }}>Session Log</div>
-          {s.sessions.length === 0 ? <div style={{ padding: "30px 0", textAlign: "center", color: T.muted, fontSize: 13 }}>No sessions yet.</div> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
-              {s.sessions.map(sess => {
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 12 }}>{t("sessionLog")}</div>
+          {/* Live in-progress entry */}
+          {s.running && (
+            <div className="fade-in" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: T.pillMintBg, border: `1px solid ${T.pillMintFg}33`, borderRadius: T.radius, marginBottom: 8 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text }}>{s.currentProject || "In progress…"}</div>
+                <div style={{ fontSize: 11, color: T.pillMintFg, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span className="pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: T.pillMintFg, display: "inline-block" }}/>
+                  {isBillable || isFixed ? `${mm}:${ss} elapsed` : `${mm}:${ss} remaining`}
+                </div>
+              </div>
+              <Pill tone="mint">live</Pill>
+            </div>
+          )}
+          {s.sessions.length === 0 && !s.running ? <div style={{ padding: "20px 0", textAlign: "center", color: T.muted, fontSize: 13 }}>{t("noSessionsYet")}</div> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+              {s.sessions.filter(sess => isFixed ? sess.fixed : isBillable ? !sess.fixed : !sess.fixed).map(sess => {
                 const secs = sess.seconds || sess.minutes * 60;
                 const hrs = Math.floor(secs / 3600); const mins = Math.floor((secs % 3600) / 60); const sc = secs % 60;
                 const precise = hrs > 0 ? `${hrs}h ${mins}m ${sc}s` : mins > 0 ? `${mins}m ${sc}s` : `${sc}s`;
@@ -1828,10 +1956,19 @@ const TimerModule = ({ client, patch, pushToast }) => {
         </Card>
       </div>
     </div>
+    {showCustomDuration && (
+      <CustomDurationModal
+        currentMinutes={Math.round(s.targetSeconds / 60)}
+        onSet={sec => setTarget(sec)}
+        onClose={() => setShowCustomDuration(false)}
+      />
+    )}
+  </>
   );
 };
 
 // ═══════ MODULE 3: INVOICING ═══════
+
 const INVOICE_RANGES = [
   { key: "this-month", get label() { return t("thisMonth"); } },
   { key: "last-month", get label() { return t("lastMonth"); } },
@@ -2081,7 +2218,7 @@ export default function App() {
         const next=prev.map(c=>{
           const t=c.modules.timer; if(!t.running) return c; touched=true;
           if(t.billingMode==="billable"||t.billingMode==="fixed") return { ...c, modules:{ ...c.modules, timer:{ ...t, elapsedSeconds:t.elapsedSeconds+1 } } };
-          if(t.seconds<=1){ if(t.mode==="focus"){ const sess={ id:Date.now()+Math.random(), project:t.currentProject.trim()||"Focus Session", minutes:25, seconds:25*60, time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}), dateISO:new Date().toISOString(), billable:true }; completedClientId=c.id; return { ...c, modules:{ ...c.modules, timer:{ ...t, running:false, mode:"break", seconds:5*60, sessions:[sess,...t.sessions] } } }; } else return { ...c, modules:{ ...c.modules, timer:{ ...t, running:false, mode:"focus", seconds:25*60 } } }; }
+          if(t.seconds<=1){ if(t.mode==="focus"){ const sess={ id:Date.now()+Math.random(), project:t.currentProject.trim()||"Focus Session", minutes:25, seconds:25*60, time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}), dateISO:new Date().toISOString(), billable:true }; completedClientId=c.id; return { ...c, modules:{ ...c.modules, timer:{ ...t, running:false, mode:"break", seconds:5*60, runStartSeconds:5*60, sessions:[sess,...t.sessions] } } }; } else return { ...c, modules:{ ...c.modules, timer:{ ...t, running:false, mode:"focus", seconds:25*60, runStartSeconds:25*60 } } }; }
           return { ...c, modules:{ ...c.modules, timer:{ ...t, seconds:t.seconds-1 } } };
         });
         if(completedClientId&&(completedClientId!==activeClientIdRef.current||viewRef.current!=="client")){ setNotifyIds(s=>new Set(s).add(completedClientId)); setTimeout(()=>setNotifyIds(s=>{ const n=new Set(s); n.delete(completedClientId); return n; }),2800); }
@@ -2115,7 +2252,7 @@ export default function App() {
   const openModule = useCallback(moduleKey=>{ setActiveModule(moduleKey); setView("client"); },[]);
 
   // Client handlers
-  const handleNewClient = useCallback(name=>{ const idx=clients.length%CLIENT_HUES.length; const c=newClient(name,idx); setClients(prev=>[...prev,c]); openClient(c.id); pushToast({ icon:<UserPlus size={14}/>, title:t("clientCreated"), subtitle:name, hint:"⌘W" }); },[clients.length,openClient,pushToast]);
+  const handleNewClient = useCallback(name=>{ const idx=clients.length%CLIENT_HUES.length; const c=newClient(name,idx); setClients(prev=>[...prev,c]); openClient(c.id); setShowNewClient(false); pushToast({ icon:<UserPlus size={14}/>, title:t("clientCreated"), subtitle:name, hint:"⌘W" }); },[clients.length,openClient,pushToast]);
   const handleCloseClient = useCallback(id=>{ setOpenClientIds(prev=>{ const next=prev.filter(x=>x!==id); return next; }); setClosingIds(s=>new Set(s).add(id)); setTimeout(()=>{ setClosingIds(s=>{ const n=new Set(s); n.delete(id); return n; }); },250); if(activeClientId===id){ const remaining=openClientIds.filter(x=>x!==id); if(remaining.length){ setActiveClientId(remaining[remaining.length-1]); } else { setView("dashboard"); setActiveClientId(null); } } },[activeClientId,openClientIds]);
   const handleDeleteClient = useCallback(clientId=>{ const client=clients.find(c=>c.id===clientId); setClients(prev=>prev.filter(c=>c.id!==clientId)); setOpenClientIds(prev=>prev.filter(x=>x!==clientId)); if(activeClientId===clientId){ const remainingOpen=openClientIds.filter(x=>x!==clientId); if(remainingOpen.length) setActiveClientId(remainingOpen[0]); else { setView("dashboard"); setActiveClientId(null); } } setDeleteTarget(null); if(client) pushToast({ icon:<Trash2 size={14}/>, title:t("clientDeleted"), subtitle:`${client.name} removed permanently.` }); },[clients,activeClientId,openClientIds,pushToast]);
   const handleRenameClient = useCallback((id,name)=>{ setClients(prev=>prev.map(c=>c.id===id?{...c,name}:c)); },[]);
@@ -2140,7 +2277,7 @@ export default function App() {
       <div style={{ minHeight:"100vh", background:T.bg }}>
         <MobileHeader onOpenMenu={()=>setMobileMenuOpen(true)} clients={clients} onOpenClient={openClient} onDismissReminder={dismissReminder}/>
         <div className={`drawer-backdrop${mobileMenuOpen?" open":""}`} onClick={()=>setMobileMenuOpen(false)}/>
-        <Sidebar view={view} activeModule={activeModule} onGoDashboard={goDashboard} onSelectModule={openModule} clients={clients} openClientIds={openClientIds} activeClientId={activeClientId} onSelectClient={openClient} onDeleteClient={c=>setDeleteTarget(c)} onNewClient={()=>setShowNewClient(true)} onOpenSettings={()=>setShowSettings(true)} profile={profile} isDark={isDark} onToggleDark={()=>setIsDark(d=>!d)} isRTL={isRTL} onToggleRTL={()=>setIsRTL(r=>!r)} mobileMenuOpen={mobileMenuOpen} onCloseMobile={()=>setMobileMenuOpen(false)}/>
+        <Sidebar view={view} activeModule={activeModule} onGoDashboard={goDashboard} onSelectModule={openModule} clients={clients} openClientIds={openClientIds} activeClientId={activeClientId} onSelectClient={openClient} onDeleteClient={c=>setDeleteTarget(c)} onNewClient={()=>setShowNewClient(true)} onOpenSettings={()=>setShowSettings(true)} profile={profile} isDark={isDark} onToggleDark={()=>setIsDark(d=>!d)} isRTL={isRTL} onToggleRTL={()=>{ const next=!isRTL; localStorage.setItem("stratloom_dir",next?"rtl":"ltr"); document.documentElement.setAttribute("dir",next?"rtl":"ltr"); setIsRTL(next); }} mobileMenuOpen={mobileMenuOpen} onCloseMobile={()=>setMobileMenuOpen(false)}/>
         <div className="main-offset" style={{ marginLeft:244 }}>
           <div className="tabbar-hide" style={{ display:"contents" }}>
             <TabBar view={view} clients={openClients} activeClientId={activeClientId} onSelectClient={openClient} onCloseClient={handleCloseClient} onNewClient={()=>setShowNewClient(true)} onRenameClient={handleRenameClient} onGoDashboard={goDashboard} onReorder={handleReorder} closingIds={closingIds} notifyIds={notifyIds}/>
@@ -2151,7 +2288,7 @@ export default function App() {
             <>
               <div className="client-header-strip" style={{ padding:"20px 40px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, background:T.bgSoft, borderBottom:`1px solid ${T.border}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-                  <div style={{ width:44, height:44, borderRadius:"50%", background:activeClient.hue.bg, color:activeClient.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, fontWeight:700, letterSpacing:"-0.01em" }}>{activeClient.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
+                  <div className="letter-avatar" style={{ width:44, height:44, borderRadius:"50%", background:activeClient.hue.bg, color:activeClient.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, fontWeight:700, letterSpacing:"-0.01em" }}>{activeClient.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
                   <div>
                     <h2 style={{ fontSize:24, fontWeight:700, letterSpacing:"-0.025em", color:T.text }}>{activeClient.name}</h2>
                     <div style={{ fontSize:12.5, color:T.muted, marginTop:2, display:"flex", gap:8, alignItems:"center" }}>
