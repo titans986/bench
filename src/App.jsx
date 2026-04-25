@@ -6,7 +6,7 @@ import {
   Users, Trash2, Square, Keyboard, Plus, BatteryLow, Flame, Coffee, Layers,
   Receipt, Trash, PlusCircle, ScrollText, Download, Upload, AlertCircle,
   Phone, Globe, AtSign, CheckSquare, History, Bell, BellRing, CalendarClock, ChevronDown,
-  Moon, Sun, Languages,
+  Moon, Sun, Languages, X as XIcon,
 } from "lucide-react";
 
 /* ════════════════════════════════════════════
@@ -167,6 +167,7 @@ const T = {
   pillRoseBg:  "var(--t-pill-rose-bg)",  pillRoseFg:  "var(--t-pill-rose-fg)",
   green: "var(--t-green)", red: "var(--t-red)", amber: "var(--t-amber)",
   dark: "var(--t-dark)", darkSurface: "var(--t-dark-surface)",
+  btnText: "var(--t-btn-text)",
   shadow: "var(--t-shadow)", shadowCard: "var(--t-shadow-card)", shadowLg: "var(--t-shadow-lg)",
   radius: 14, radiusLg: 20, radiusXl: 24,
   sans: "'Plus Jakarta Sans', -apple-system, system-ui, sans-serif",
@@ -298,6 +299,7 @@ const GlobalStyles = () => (
       --t-pill-rose-bg-alpha:rgba(251,212,218,0.27);
       --t-green:#3E8E4C; --t-red:#B9462C; --t-amber:#B4791A;
       --t-dark:#1F1B16; --t-dark-surface:#2A241C;
+      --t-btn-text:#F3ECDC;
       --t-shadow:0 1px 2px rgba(60,44,18,0.06);
       --t-shadow-card:0 2px 8px rgba(60,44,18,0.06);
       --t-shadow-lg:0 8px 24px rgba(60,44,18,0.08);
@@ -318,6 +320,7 @@ const GlobalStyles = () => (
       --t-pill-rose-bg-alpha:rgba(53,21,32,0.4);
       --t-green:#34C759; --t-red:#E84040; --t-amber:#F0A030;
       --t-dark:#3A3A3A; --t-dark-surface:#444444;
+      --t-btn-text:#1A1A1A;
       --t-shadow:0 1px 2px rgba(0,0,0,0.5);
       --t-shadow-card:0 2px 8px rgba(0,0,0,0.5);
       --t-shadow-lg:0 8px 32px rgba(0,0,0,0.7);
@@ -475,7 +478,7 @@ const TextArea = ({ style, ...props }) => (
   <textarea {...props} style={{ width: "100%", padding: "11px 14px", fontSize: 14, color: T.text, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.radius, fontFamily: T.sans, lineHeight: 1.5, ...style }} className="input-focus" />
 );
 const PrimaryBtn = ({ onClick, children, loading, disabled, style }) => (
-  <button onClick={onClick} disabled={disabled || loading} className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 20px", borderRadius: 999, background: T.text, color: T.bgInverse, fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.005em", ...style }}>
+  <button onClick={onClick} disabled={disabled || loading} className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 20px", borderRadius: 999, background: T.text, color: T.btnText, fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.005em", ...style }}>
     {loading ? <span style={{ width: 14, height: 14, border: `2px solid ${T.bgInverse}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin .7s linear infinite", display: "inline-block" }} /> : children}
   </button>
 );
@@ -1111,20 +1114,6 @@ const Dashboard = ({ clients, onOpenClient, onNewClient, onOpenModule }) => {
           </Card>
         </div>
       )}
-      {insights.length>0&&(
-        <div style={{ marginTop:28 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:T.text, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}><AlertCircle size={16} color={T.amber}/> {t("insights")}</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {insights.map((ins,i)=>(
-              <button key={i} onClick={()=>onOpenClient(ins.clientId)} className="nav-item" style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:ins.tone==="rose"?T.pillRoseBg:T.pillAmberBg, border:`1px solid ${ins.tone==="rose"?T.pillRoseFg+"22":T.pillAmberFg+"22"}`, borderRadius:T.radius, textAlign:"left" }}>
-                <span style={{ color:ins.tone==="rose"?T.pillRoseFg:T.pillAmberFg, display:"flex" }}>{ins.icon}</span>
-                <span style={{ fontSize:13, fontWeight:500, color:T.text, flex:1 }}>{ins.text}</span>
-                <span style={{ color:T.muted, fontSize:12 }}>→</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -1470,7 +1459,7 @@ const Sidebar = ({ view, activeModule, onGoDashboard, onSelectModule, clients, o
                 </div>
               </button>
               {timerRunning&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}
-              <button className="sidebar-delete-btn" onClick={e=>{ e.stopPropagation(); onDeleteClient(c); }} style={{ width:20, height:20, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:T.muted, flexShrink:0 }}>×</button>
+              <button className="sidebar-delete-btn" onClick={e=>{ e.stopPropagation(); onDeleteClient(c); }} style={{ width:20, height:20, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", color:T.muted, flexShrink:0 }}><XIcon size={11}/></button>
             </div>
           ); })}
         </div>
