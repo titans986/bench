@@ -303,14 +303,20 @@ function filterSessionsInRange(sessions, rangeKey) {
     return d >= start && d < end;
   });
 }
+function getLocale() { return localStorage.getItem("stratloom_dir") === "rtl" ? "ar-SA" : undefined; }
+function getNextInvoiceNumber(clients) {
+  let max = 0;
+  clients.forEach(c => { (c.modules.invoicing?.invoiceHistory || []).forEach(h => { const n = parseInt(h.number, 10); if (!isNaN(n) && n > max) max = n; }); });
+  return String(max + 1).padStart(3, "0");
+}
 function formatDateShort(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(getLocale(), { month: "short", day: "numeric" });
 }
 function formatDateLong(d) {
-  return (d instanceof Date ? d : new Date(d)).toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" });
+  return (d instanceof Date ? d : new Date(d)).toLocaleDateString(getLocale(), { year: "numeric", month: "long", day: "numeric" });
 }
+function fmtDate(d) { return (d instanceof Date ? d : new Date(d)).toLocaleDateString(getLocale(), { month: "short", year: "numeric" }); }
 function fmtMoney(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -384,6 +390,8 @@ const GlobalStyles = () => (
     @keyframes numberPop { 0%{transform:translateY(0)} 30%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
     @keyframes paletteIn { from{opacity:0;transform:translateY(-12px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
     @keyframes notifyPulse { 0%,100%{box-shadow:0 0 0 0 rgba(62,142,76,0)} 50%{box-shadow:0 0 0 4px rgba(62,142,76,0.25)} }
+    @keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+    @keyframes confettiSway { 0%,100%{margin-left:0} 50%{margin-left:30px} }
 
     .fade-up{animation:fadeUp 0.42s cubic-bezier(0.16,1,0.3,1) both}
     .fade-in{animation:fadeIn 0.3s ease both}
@@ -616,13 +624,13 @@ async function streamClaude({ system, user, onChunk, onDone, onError }) {
 
 // ─── State factory ───────────────────────────────
 const emptyModuleState = () => ({
-  proposals: { name: "", rate: "", brief: "", output: "", streaming: false, error: "", count: 0 },
+  proposals: { name: "", rate: "", brief: "", output: "", streaming: false, error: "", count: 0, history: [] },
   timer: {
     billingMode: "pomodoro", mode: "focus", seconds: 25 * 60, running: false,
     targetSeconds: 60 * 60, elapsedSeconds: 0, fixedAmount: "", currentProject: "", sessions: [],
     runStartSeconds: 25 * 60,
   },
-  comms: { situation: "Scope creep — added work without extra pay", context: "", output: "", streaming: false, error: "" },
+  comms: { situation: "Scope creep — added work without extra pay", tone: "mild", context: "", output: "", streaming: false, error: "" },
   rate: { exp: "", profit: "", days: "", hours: "", skill: "", rates: null, advice: "", streaming: false, error: "", invoiceRange: "this-month", invoiceMeta: null },
   testimonials: { name: "", project: "", raw: "", polished: "", streaming: false, error: "", cards: [] },
   prioritizer: { energy: "med", tasks: "", output: "", streaming: false, error: "" },
@@ -631,7 +639,7 @@ const emptyModuleState = () => ({
     billingType: "hourly", invoiceRange: "this-month", hourlyRate: "",
     lineItems: [{ id: "li_1", description: "", amount: "" }],
     meta: { number: "001", date: new Date().toISOString().split("T")[0], dueDate: "", taxRate: "", notes: "", paymentTerms: "Net 30", freelancerName: "", freelancerEmail: "", clientEmail: "" },
-    pdfLoading: false, invoiceHistory: [],
+    pdfLoading: false, invoiceHistory: [], expenses: [],
   },
 });
 
@@ -647,6 +655,34 @@ const newClient = (name, hueIdx) => ({
 });
 
 // ═══════ MODULE 1: PROPOSALS ═══════
+const ProposalHistoryItem = ({ h, versionNum, onRestore }) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radiusLg, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: T.pillLilacBg, color: T.pillLilacFg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>v{versionNum}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text }}>Version {versionNum}</div>
+          <div style={{ fontSize: 11.5, color: T.muted, marginTop: 1 }}>
+            {formatDateLong(new Date(h.savedAt))} · {h.wordCount} words
+            {h.brief ? ` · "${h.brief.slice(0, 40)}${h.brief.length > 40 ? "…" : ""}"` : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostBtn onClick={e => { e.stopPropagation(); onRestore(); }} style={{ padding: "6px 12px", fontSize: 12 }}>Restore</GhostBtn>
+          <GhostBtn onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(h.output); }} style={{ padding: "6px 12px", fontSize: 12 }}>{t("copy")}</GhostBtn>
+        </div>
+        <span style={{ color: T.muted, fontSize: 13, transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>▾</span>
+      </div>
+      {expanded && (
+        <div style={{ padding: "14px 18px 18px", borderTop: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 13.5, lineHeight: 1.7, color: T.text, whiteSpace: "pre-wrap" }}>{h.output}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProposalsModule = ({ client, patch, profile }) => {
   const s = client.modules.proposals;
   const [refineText, setRefineText] = useState("");
@@ -656,14 +692,19 @@ const ProposalsModule = ({ client, patch, profile }) => {
 
   const go = () => {
     if (!s.name.trim() || !s.brief.trim()) { patch({ proposals: { ...s, error: "Please enter your name and a project brief." } }); return; }
-    patch({ proposals: { ...s, error: "", output: "", streaming: true } });
+    // Auto-save current proposal to history before replacing
+    const prevHistory = s.history || [];
+    const newHistory = s.output
+      ? [{ id: `ph_${Date.now()}`, output: s.output, brief: s.brief, name: s.name, rate: s.rate, savedAt: Date.now(), wordCount: s.output.trim().split(/\s+/).filter(Boolean).length }, ...prevHistory]
+      : prevHistory;
+    patch({ proposals: { ...s, error: "", output: "", streaming: true, history: newHistory } });
     let buffer = "";
     streamClaude({
       system: "You are an expert freelance proposal writer. Write confident, warm, client-winning proposals. Structure: Project Understanding → Your Approach → Deliverables → Timeline → Investment. Keep under 280 words. Professional yet human. Do not use markdown — no ##, no **, no bullet dashes. Use plain paragraphs with section names followed by a colon on their own line.",
       user: `Freelancer name: ${s.name}\nClient: ${client.name}\nRate/Budget: ${s.rate || "TBD"}\n\nProject brief:\n${s.brief}`,
-      onChunk: (txt) => { buffer += txt; patch({ proposals: { ...s, error: "", streaming: true, output: buffer } }); },
-      onDone: () => patch({ proposals: { ...s, error: "", output: buffer, streaming: false, count: s.count + 1 } }),
-      onError: (err) => patch({ proposals: { ...s, streaming: false, error: err.message || "Something went wrong." } }),
+      onChunk: (txt) => { buffer += txt; patch({ proposals: { ...s, error: "", streaming: true, output: buffer, history: newHistory } }); },
+      onDone: () => patch({ proposals: { ...s, error: "", output: buffer, streaming: false, count: s.count + 1, history: newHistory } }),
+      onError: (err) => patch({ proposals: { ...s, streaming: false, error: err.message || "Something went wrong.", history: newHistory } }),
     });
   };
 
@@ -729,6 +770,21 @@ const ProposalsModule = ({ client, patch, profile }) => {
           <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 999, padding: "6px 8px 6px 16px", boxShadow: T.shadow }}>
             <input value={refineText} onChange={e => setRefineText(e.target.value)} onKeyDown={e => e.key === "Enter" && refine()} placeholder="Ask for changes — e.g. make it shorter, adjust the tone…" style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 13.5, color: T.text, fontFamily: T.sans }} />
             <button onClick={refine} disabled={!refineText.trim()} style={{ background: refineText.trim() ? T.text : T.bgDeeper, color: refineText.trim() ? T.bg : T.muted, border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>{t("refine")}</button>
+          </div>
+        )}
+
+        {/* Proposal history */}
+        {(s.history || []).length > 0 && (
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text, letterSpacing: "-0.01em" }}>Previous Versions</div>
+              <Pill tone="lilac">{s.history.length}</Pill>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {(s.history || []).map((h, i) => (
+                <ProposalHistoryItem key={h.id} h={h} versionNum={(s.history.length) - i} onRestore={() => patch({ proposals: { ...s, output: h.output } })} />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -828,22 +884,51 @@ const ContractsModule = ({ client, patch, profile }) => {
 
 // ═══════ MODULE 5: COMMS ═══════
 const SITUATIONS = [
-  "Scope creep — added work without extra pay",
-  "Invoice overdue — client hasn't paid",
-  "Project delay — timeline needs to shift",
-  "Rate increase — raising my prices",
-  "Project kick-off — starting a new engagement",
-  "Follow-up — checking in after no response",
+  { label: "Scope creep",     desc: "Added work without extra pay",   value: "Scope creep — added work without extra pay",      bg: T.pillAmberBg, fg: T.pillAmberFg },
+  { label: "Invoice overdue", desc: "Client hasn't paid",             value: "Invoice overdue — client hasn't paid",            bg: T.pillRoseBg,  fg: T.pillRoseFg  },
+  { label: "Project delay",   desc: "Timeline needs to shift",        value: "Project delay — timeline needs to shift",         bg: T.pillBlueBg,  fg: T.pillBlueFg  },
+  { label: "Rate increase",   desc: "Raising my prices",              value: "Rate increase — raising my prices",               bg: T.pillMintBg,  fg: T.pillMintFg  },
+  { label: "Kick-off",        desc: "Starting a new engagement",      value: "Project kick-off — starting a new engagement",    bg: T.pillLilacBg, fg: T.pillLilacFg },
+  { label: "Follow-up",       desc: "Checking in after no response",  value: "Follow-up — checking in after no response",       bg: T.pillPeachBg, fg: T.pillPeachFg },
 ];
+
+const TONES = [
+  { key: "easy",  label: "Easy on",     desc: "Gentle & empathetic",  bg: T.pillMintBg,  fg: T.pillMintFg  },
+  { key: "mild",  label: "Mild",         desc: "Professional & balanced", bg: T.pillBlueBg,  fg: T.pillBlueFg  },
+  { key: "harsh", label: "Being Harsh",  desc: "Direct & firm",        bg: T.pillRoseBg,  fg: T.pillRoseFg  },
+];
+const TONE_PROMPTS = {
+  easy:  "Write in a gentle, understanding, and empathetic tone. Be soft, considerate, and prioritise the relationship above all.",
+  mild:  "Write in a professional, confident, and balanced tone. Be friendly but assertive.",
+  harsh: "Write in a direct, firm, and no-nonsense tone. Be assertive and clear about expectations without being rude.",
+};
 
 const CommsModule = ({ client, patch }) => {
   const s = client.modules.comms;
+  const [refineText, setRefineText] = useState("");
+  const currentTone = s.tone || "mild";
+
   const go = () => {
     patch({ comms: { ...s, error: "", output: "", streaming: true } });
     let buffer = "";
     streamClaude({
-      system: "You are an expert freelance communication coach. Write professional, confident, and warm emails for freelancers. Keep emails concise and action-oriented. No markdown. Plain paragraphs only.",
+      system: `You are an expert freelance communication coach. Write professional emails for freelancers. Keep emails concise and action-oriented. No markdown. Plain paragraphs only. ${TONE_PROMPTS[currentTone]}`,
       user: `Freelancer is writing to client: ${client.name}\nSituation: ${s.situation}\nContext: ${s.context || "No additional context provided."}`,
+      onChunk: (txt) => { buffer += txt; patch({ comms: { ...s, error: "", streaming: true, output: buffer } }); },
+      onDone: () => patch({ comms: { ...s, error: "", output: buffer, streaming: false } }),
+      onError: (err) => patch({ comms: { ...s, streaming: false, error: err.message || "Something went wrong." } }),
+    });
+  };
+
+  const refine = () => {
+    const req = refineText.trim();
+    if (!req || !s.output || s.streaming) return;
+    setRefineText("");
+    patch({ comms: { ...s, error: "", streaming: true } });
+    let buffer = "";
+    streamClaude({
+      system: `You are an email editor. Your only job is to edit the email based on the user's request. Output only the revised email — no commentary, no preamble. No markdown. ${TONE_PROMPTS[currentTone]} If the request is unrelated to this email, respond: 'I can only help refine this email.'`,
+      user: `Current email:\n${s.output}\n\nRequested change: ${req}`,
       onChunk: (txt) => { buffer += txt; patch({ comms: { ...s, error: "", streaming: true, output: buffer } }); },
       onDone: () => patch({ comms: { ...s, error: "", output: buffer, streaming: false } }),
       onError: (err) => patch({ comms: { ...s, streaming: false, error: err.message || "Something went wrong." } }),
@@ -853,13 +938,80 @@ const CommsModule = ({ client, patch }) => {
     <div className="fade-up">
       <ModuleHeader icon={<Mail size={22} />} title={t("comms")} description={`${t("commsDesc")} ${client.name}.`} badge={{ label: t("aiPowered"), tone: "blue" }} />
       <Card>
-        <Field label={t("situation")}>
-          <select value={s.situation} onChange={e => patch({ comms: { ...s, situation: e.target.value } })} style={{ width: "100%", padding: "11px 14px", fontSize: 14, color: T.text, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.radius, fontFamily: T.sans }}>
-            {SITUATIONS.map(sit => <option key={sit} value={sit}>{sit}</option>)}
-          </select>
-        </Field>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: T.subtext, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10 }}>{t("situation")}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {SITUATIONS.map(sit => {
+              const active = s.situation === sit.value;
+              return (
+                <div key={sit.value} style={{ position: "relative" }}
+                  onMouseEnter={e => { const tip = e.currentTarget.querySelector(".sit-tip"); if (tip) tip.style.opacity = "1"; }}
+                  onMouseLeave={e => { const tip = e.currentTarget.querySelector(".sit-tip"); if (tip) tip.style.opacity = "0"; }}>
+                  <button
+                    onClick={() => patch({ comms: { ...s, situation: sit.value } })}
+                    style={{
+                      padding: "8px 16px", fontSize: 13, fontWeight: 700, borderRadius: 999,
+                      background: active ? sit.fg : sit.bg,
+                      color: active ? "white" : sit.fg,
+                      border: `1.5px solid ${active ? sit.fg : "transparent"}`,
+                      transition: "all .18s ease", cursor: "pointer",
+                      boxShadow: active ? `0 2px 8px ${sit.fg}44` : "none",
+                    }} className="nav-item">
+                    {sit.label}
+                  </button>
+                  <div className="sit-tip" style={{
+                    position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
+                    transform: "translateX(-50%)",
+                    background: T.darkSurface, color: T.bgInverse,
+                    fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap",
+                    padding: "6px 12px", borderRadius: 8,
+                    pointerEvents: "none", opacity: 0,
+                    transition: "opacity .15s ease",
+                    zIndex: 50, boxShadow: T.shadowLg,
+                  }}>
+                    {sit.desc}
+                    <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: `5px solid ${T.darkSurface}` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Tone selector */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: T.subtext, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10 }}>Tone</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {TONES.map(tone => {
+              const active = currentTone === tone.key;
+              return (
+                <div key={tone.key} style={{ position: "relative", flex: 1 }}
+                  onMouseEnter={e => { const tip = e.currentTarget.querySelector(".sit-tip"); if (tip) tip.style.opacity = "1"; }}
+                  onMouseLeave={e => { const tip = e.currentTarget.querySelector(".sit-tip"); if (tip) tip.style.opacity = "0"; }}>
+                  <button
+                    onClick={() => patch({ comms: { ...s, tone: tone.key } })}
+                    style={{
+                      width: "100%", padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 10,
+                      background: active ? tone.fg : tone.bg,
+                      color: active ? "white" : tone.fg,
+                      border: `1.5px solid ${active ? tone.fg : "transparent"}`,
+                      transition: "all .18s ease", cursor: "pointer",
+                      boxShadow: active ? `0 3px 10px ${tone.fg}44` : "none",
+                      textAlign: "center",
+                    }} className="nav-item">
+                    {tone.label}
+                  </button>
+                  <div className="sit-tip" style={{ position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", background: T.darkSurface, color: T.bgInverse, fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap", padding: "6px 12px", borderRadius: 8, pointerEvents: "none", opacity: 0, transition: "opacity .15s ease", zIndex: 50, boxShadow: T.shadowLg }}>
+                    {tone.desc}
+                    <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: `5px solid ${T.darkSurface}` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <Field label={t("additionalContext")} hint="optional">
-          <TextArea rows={3} value={s.context} onChange={e => patch({ comms: { ...s, context: e.target.value } })} placeholder="Any specific details, amounts, dates, tone preferences..." />
+          <TextArea rows={3} value={s.context} onChange={e => patch({ comms: { ...s, context: e.target.value } })} placeholder="Any specific details, amounts, dates..." />
         </Field>
         <div style={{ display: "flex", justifyContent: "flex-end" }}><PrimaryBtn onClick={go} loading={s.streaming}>{t("draftEmail")}</PrimaryBtn></div>
         <ErrorBanner message={s.error} onDismiss={() => patch({ comms: { ...s, error: "" } })} />
@@ -872,6 +1024,12 @@ const CommsModule = ({ client, patch }) => {
           {!s.streaming && s.output && <GhostBtn style={{ marginLeft: "auto" }} onClick={() => navigator.clipboard.writeText(s.output)}>{t("copy")}</GhostBtn>}
         </div>
         <AIBox text={s.output} streaming={s.streaming} emptyLabel="Your email draft will stream here." />
+        {s.output && !s.streaming && (
+          <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 999, padding: "6px 8px 6px 16px", boxShadow: T.shadow }}>
+            <input value={refineText} onChange={e => setRefineText(e.target.value)} onKeyDown={e => e.key === "Enter" && refine()} placeholder="Ask for changes — e.g. make it shorter, more formal…" style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 13.5, color: T.text, fontFamily: T.sans }} />
+            <button onClick={refine} disabled={!refineText.trim()} style={{ background: refineText.trim() ? T.text : T.bgDeeper, color: refineText.trim() ? T.bgInverse : T.muted, border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, flexShrink: 0, transition: "background .15s, color .15s" }}>{t("refine")}</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1136,6 +1294,91 @@ const Dashboard = ({ clients, onOpenClient, onNewClient, onOpenModule }) => {
           )}
         </Card>
       </div>
+      {/* ── Time Report ── */}
+      {totalMinutes > 0 && (() => {
+        const now = new Date();
+        const months = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+          return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString(getLocale(), { month: "short" }) };
+        });
+        const minsPerMonth = months.map(m => {
+          let total = 0;
+          clients.forEach(c => c.modules.timer.sessions.forEach(s => {
+            if (!s.dateISO) return;
+            const d = new Date(s.dateISO);
+            if (d.getFullYear() === m.year && d.getMonth() === m.month) total += s.minutes;
+          }));
+          return { ...m, mins: total, hrs: +(total / 60).toFixed(1) };
+        });
+        const maxHrs = Math.max(...minsPerMonth.map(m => m.hrs), 1);
+        const thisMonth = minsPerMonth[5];
+        const lastMonth = minsPerMonth[4];
+        const diff = thisMonth.hrs - lastMonth.hrs;
+        const thisMonthClients = clients.map(c => ({
+          name: c.name, hue: c.hue,
+          hrs: +(c.modules.timer.sessions.filter(s => { if (!s.dateISO) return false; const d = new Date(s.dateISO); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).reduce((a, s) => a + s.minutes, 0) / 60).toFixed(1),
+        })).filter(c => c.hrs > 0).sort((a, b) => b.hrs - a.hrs);
+
+        return (
+          <div style={{ marginTop: 28 }}>
+            <Card>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: T.text, letterSpacing: "-0.01em" }}>Time Report</div>
+                  <div style={{ fontSize: 12.5, color: T.subtext, marginTop: 2 }}>Billed hours over the last 6 months</div>
+                </div>
+                <div style={{ display: "flex", gap: 16 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>This month</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: T.text, fontFamily: T.mono, letterSpacing: "-0.02em" }}>{thisMonth.hrs}h</div>
+                  </div>
+                  {lastMonth.hrs > 0 && (
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>vs last month</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: diff >= 0 ? T.green : T.red, fontFamily: T.mono }}>{diff >= 0 ? "+" : ""}{diff.toFixed(1)}h</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bar chart */}
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", height: 80, marginBottom: 8 }}>
+                {minsPerMonth.map((m, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 10, color: T.muted, fontWeight: 600 }}>{m.hrs > 0 ? `${m.hrs}h` : ""}</div>
+                    <div style={{ width: "100%", background: T.bgSoft, borderRadius: 6, overflow: "hidden", height: 52 }}>
+                      <div style={{ width: "100%", height: `${Math.max(4, (m.hrs / maxHrs) * 100)}%`, background: i === 5 ? T.text : T.border, borderRadius: 6, transition: "height .4s ease", marginTop: "auto", position: "relative", top: `${100 - Math.max(4, (m.hrs / maxHrs) * 100)}%` }} />
+                    </div>
+                    <div style={{ fontSize: 10.5, color: i === 5 ? T.text : T.muted, fontWeight: i === 5 ? 700 : 500 }}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* This month by client */}
+              {thisMonthClients.length > 0 && (
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.subtext, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 }}>
+                    {now.toLocaleDateString(getLocale(), { month: "long" })} by client
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {thisMonthClients.map(c => (
+                      <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: c.hue.bg, color: c.hue.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, flexShrink: 0 }}>{c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}</div>
+                        <div style={{ flex: 1, fontSize: 13, color: T.text, fontWeight: 500 }}>{c.name}</div>
+                        <div style={{ height: 6, width: 100, background: T.bgSoft, borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${(c.hrs / thisMonthClients[0].hrs) * 100}%`, background: c.hue.fg, borderRadius: 999 }} />
+                        </div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text, fontFamily: T.mono, width: 36, textAlign: "right" }}>{c.hrs}h</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
+
       {clients.length>0&&(
         <div style={{ marginTop:28 }}>
           <Card>
@@ -1394,7 +1637,161 @@ const LoginScreen = ({ onAuthenticated }) => {
 };
 
 // ═══════ SETTINGS MODAL ═══════
-const SettingsModal = ({ profile, onSave, onClose, onExport, onImport }) => {
+// ═══════ PRODUCT TOUR ═══════
+const TOUR_STEPS = [
+  { title: "Welcome to Bench 👋", desc: "Your complete freelance OS — proposals, invoicing, contracts, time tracking, and more. Let's take a 60-second tour.", target: null, pos: "center", emoji: "🚀" },
+  { title: "Sidebar Navigation", desc: "Navigate between all 8 modules and your client list from here. Everything is one click away.", target: ".sidebar-fixed", pos: "right", emoji: "🗂" },
+  { title: "8 Powerful Modules", desc: "Proposals · Focus Timer · Invoicing · Contracts · Client Comms · Rate Calc · Testimonials · Prioritizer — each built around real freelance workflows.", target: ".sidebar-fixed nav", pos: "right", emoji: "⚡" },
+  { title: "Dark Mode & Arabic", desc: "Switch to dark mode for late-night sessions, or toggle to full Arabic RTL support — both buttons sit at the bottom of the sidebar.", target: ".sidebar-fixed", pos: "right-bottom", emoji: "🌙" },
+  { title: "Notification Bell", desc: "Get reminded about unpaid invoices, inactive clients, and follow-up reminders — all surfaced here automatically.", target: ".bell-fixed", pos: "left-bottom", emoji: "🔔" },
+  { title: "Client Tabs", desc: "Each client opens in their own tab — close without losing data, reopen from the sidebar. Just like a browser.", target: ".tabbar-hide", pos: "bottom", emoji: "📂" },
+  { title: "You're all set! 🎉", desc: "Add your first client and start working. Everything auto-saves. Click the ? button in Settings anytime to replay this tour.", target: null, pos: "center", emoji: "✅" },
+];
+
+const ConfettiPiece = ({ color, left, delay, duration, size, isCircle }) => (
+  <div style={{
+    position: "absolute", top: -20, left: `${left}%`,
+    width: size, height: size,
+    background: color, borderRadius: isCircle ? "50%" : 3,
+    animation: `confettiFall ${duration}s ${delay}s ease-in forwards, confettiSway ${duration * 0.6}s ${delay}s ease-in-out infinite`,
+    opacity: 0,
+  }} />
+);
+
+const CONFETTI_COLORS = ["#E8DCFA","#FBD6BE","#FBE5A6","#D4E2FB","#D4EBD8","#FBD4DA","#C4A8FF","#FF8060","#FFB840","#60A8FF","#50D080","#FF6680"];
+
+const Confetti = ({ onDone }) => {
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setFading(true), 3000);
+    const doneTimer = setTimeout(onDone, 4200);
+    return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
+  }, [onDone]);
+  const pieces = Array.from({ length: 100 }, (_, i) => ({
+    id: i, color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    left: Math.random() * 100, delay: Math.random() * 2,
+    duration: 2.5 + Math.random() * 1.5, size: 7 + Math.random() * 8,
+    isCircle: Math.random() > 0.5,
+  }));
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none", overflow: "hidden", opacity: fading ? 0 : 1, transition: "opacity 1.2s ease" }}>
+      {pieces.map(p => <ConfettiPiece key={p.id} {...p} />)}
+    </div>
+  );
+};
+
+const TourOverlay = ({ step, onNext, onPrev, onClose }) => {
+  const [rect, setRect] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const s = TOUR_STEPS[step];
+  const isLast = step === TOUR_STEPS.length - 1;
+  const isFirst = step === 0;
+
+  useEffect(() => {
+    if (!s?.target) { setRect(null); return; }
+    const measure = () => {
+      const el = document.querySelector(s.target);
+      if (el) { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height }); }
+      else setRect(null);
+    };
+    measure();
+    const t = setTimeout(measure, 80);
+    return () => clearTimeout(t);
+  }, [step, s?.target]);
+
+  if (!s) return null;
+
+  const PAD = 10;
+  const W = window.innerWidth; const H = window.innerHeight;
+  const TW = 320; const TH = 240;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  const getTooltipPos = () => {
+    if (!rect) return null; // handled separately as centered
+    const { top, left, width, height } = rect;
+    if (s.pos === "right" || s.pos === "right-bottom") {
+      const t = clamp(s.pos === "right-bottom" ? H - TH - 24 : top + height / 2 - TH / 2, 16, H - TH - 16);
+      const l = clamp(left + width + PAD + 16, 16, W - TW - 16);
+      return { position: "fixed", top: t, left: l };
+    }
+    if (s.pos === "left-bottom") {
+      const t = clamp(top + height + 8, 16, H - TH - 16);
+      const l = clamp(left - TW - 16, 16, W - TW - 16);
+      return { position: "fixed", top: t, left: l };
+    }
+    if (s.pos === "bottom") {
+      const t = clamp(top + height + PAD + 16, 16, H - TH - 16);
+      const l = clamp(left + width / 2 - TW / 2, 16, W - TW - 16);
+      return { position: "fixed", top: t, left: l };
+    }
+    return null;
+  };
+
+  const tooltipPos = getTooltipPos();
+  const isCentered = !tooltipPos;
+
+  const handleFinish = () => {
+    setFinishing(true);
+    setTimeout(() => setShowConfetti(true), 400);
+  };
+
+  const card = (
+    <div className="fade-up" onClick={e => e.stopPropagation()} style={{
+      ...(tooltipPos || {}),
+      zIndex: 9001, width: TW, maxWidth: "calc(100vw - 32px)",
+      background: "var(--t-surface)", borderRadius: 18,
+      border: "1px solid var(--t-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
+      padding: 26, fontFamily: "var(--t-sans)",
+    }}>
+      <div style={{ display: "flex", gap: 5, marginBottom: 18 }}>
+        {TOUR_STEPS.map((_, i) => (
+          <div key={i} style={{ height: 4, flex: 1, borderRadius: 999, background: i <= step ? "var(--t-text)" : "var(--t-border)", transition: "background .3s ease" }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 24, marginBottom: 10 }}>{s.emoji}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--t-text)", letterSpacing: "-0.02em", marginBottom: 8 }}>{s.title}</div>
+      <div style={{ fontSize: 13.5, color: "var(--t-subtext)", lineHeight: 1.65, marginBottom: 22 }}>{s.desc}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button onClick={onClose} style={{ fontSize: 12.5, color: "var(--t-muted)", padding: "6px 0", background: "none", border: "none", cursor: "pointer" }}>
+          {isLast ? "" : "Skip tour"}
+        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!isFirst && (
+            <button onClick={onPrev} style={{ padding: "8px 16px", borderRadius: 999, background: "var(--t-bg-soft)", border: "1px solid var(--t-border)", fontSize: 13, fontWeight: 600, color: "var(--t-subtext)", cursor: "pointer" }}>← Back</button>
+          )}
+          <button onClick={isLast ? handleFinish : onNext} style={{ padding: "8px 22px", borderRadius: 999, background: "var(--t-text)", color: "var(--t-btn-text)", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer" }}>
+            {isLast ? "🎉 Get started" : "Next →"}
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--t-muted)", textAlign: "center", marginTop: 14 }}>{step + 1} / {TOUR_STEPS.length}</div>
+    </div>
+  );
+
+  return (
+    <>
+      {!showConfetti && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(2px)", opacity: finishing ? 0 : 1, transition: "opacity 0.35s ease" }} onClick={finishing ? undefined : onClose} />
+          {rect && (
+            <div style={{ position: "fixed", zIndex: 9000, pointerEvents: "none", top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, borderRadius: 14, boxShadow: "0 0 0 9999px rgba(0,0,0,0.75)", border: "2px solid rgba(255,255,255,0.3)", opacity: finishing ? 0 : 1, transition: "opacity 0.35s ease" }} />
+          )}
+          <div style={{ opacity: finishing ? 0 : 1, transition: "opacity 0.3s ease", pointerEvents: finishing ? "none" : "auto" }}>
+            {isCentered ? (
+              <div style={{ position: "fixed", inset: 0, zIndex: 9001, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: finishing ? "none" : "auto" }}>
+                <div style={{ pointerEvents: "auto" }}>{card}</div>
+              </div>
+            ) : card}
+          </div>
+        </>
+      )}
+      {showConfetti && <Confetti onDone={onClose} />}
+    </>
+  );
+};
+
+const SettingsModal = ({ profile, onSave, onClose, onExport, onImport, onStartTour }) => {
   const [form, setForm] = useState({ ...profile });
   const logoInputRef = useRef(null);
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
@@ -1440,7 +1837,10 @@ const SettingsModal = ({ profile, onSave, onClose, onExport, onImport }) => {
           </div>
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:24 }}>
-          <button onClick={handleSignOut} style={{ fontSize:13, color:T.pillRoseFg, fontWeight:600, padding:"8px 16px", borderRadius:999, background:T.pillRoseBg }} className="nav-item">{t("signOut")}</button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={handleSignOut} style={{ fontSize:13, color:T.pillRoseFg, fontWeight:600, padding:"8px 16px", borderRadius:999, background:T.pillRoseBg }} className="nav-item">{t("signOut")}</button>
+            <button onClick={()=>{ onClose(); onStartTour?.(); }} style={{ fontSize:13, color:T.subtext, fontWeight:600, padding:"8px 14px", borderRadius:999, background:T.bgSoft, border:`1px solid ${T.border}`, display:"flex", alignItems:"center", gap:6 }} className="nav-item">? Tour</button>
+          </div>
           <div style={{ display:"flex", gap:8 }}>
             <GhostBtn onClick={onClose}>{t("cancel")}</GhostBtn>
             <PrimaryBtn onClick={()=>{ onSave(form); onClose(); }}>{t("saveChanges")}</PrimaryBtn>
@@ -1976,17 +2376,28 @@ const INVOICE_RANGES = [
   { key: "all-time",   get label() { return t("allTime"); } },
 ];
 
-const InvoicingModule = ({ client, patch, profile, pushToast }) => {
+const InvoicingModule = ({ client, patch, profile, pushToast, allClients }) => {
   const s = client.modules.invoicing || emptyModuleState().invoicing;
   const patchS = (partial) => patch({ invoicing: { ...s, ...partial } });
   const patchMeta = (partial) => patchS({ meta: { ...s.meta, ...partial } });
+
+  // Auto-set invoice number on first open if still default
+  useEffect(() => {
+    if (s.meta.number === "001" && allClients?.length) {
+      const next = getNextInvoiceNumber(allClients);
+      if (next !== "001") patchMeta({ number: next });
+    }
+  }, []);
   const isFixed = s.billingType === "fixed";
   const timerSessions = client.modules.timer.sessions;
   const filteredSessions = isFixed ? [] : filterSessionsInRange(timerSessions, s.invoiceRange).filter(sess => !sess.fixed);
   const hourlyRate = parseFloat(s.hourlyRate) || 0;
   const sessionSubtotal = filteredSessions.reduce((sum, sess) => sum + (sess.minutes / 60) * hourlyRate, 0);
   const fixedSubtotal = s.lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-  const subtotal = isFixed ? fixedSubtotal : sessionSubtotal;
+  const serviceSubtotal = isFixed ? fixedSubtotal : sessionSubtotal;
+  const expenses = s.expenses || [];
+  const expenseTotal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const subtotal = serviceSubtotal + expenseTotal;
   const taxRate = parseFloat(s.meta.taxRate) || 0;
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
@@ -1994,6 +2405,9 @@ const InvoicingModule = ({ client, patch, profile, pushToast }) => {
   const addLineItem = () => patchS({ lineItems: [...s.lineItems, { id: `li_${Date.now()}`, description: "", amount: "" }] });
   const removeLineItem = (id) => patchS({ lineItems: s.lineItems.filter(li => li.id !== id) });
   const updateLineItem = (id, field, value) => patchS({ lineItems: s.lineItems.map(li => li.id === id ? { ...li, [field]: value } : li) });
+  const addExpense = () => patchS({ expenses: [...expenses, { id: `exp_${Date.now()}`, description: "", amount: "" }] });
+  const removeExpense = (id) => patchS({ expenses: expenses.filter(e => e.id !== id) });
+  const updateExpense = (id, field, value) => patchS({ expenses: expenses.map(e => e.id === id ? { ...e, [field]: value } : e) });
 
   const downloadPDF = async () => {
     patchS({ pdfLoading: true });
@@ -2030,10 +2444,27 @@ const InvoicingModule = ({ client, patch, profile, pushToast }) => {
         else { const hrs=item.minutes/60; const amt=hrs*hourlyRate; doc.setTextColor(107,100,86); doc.setFontSize(9); doc.text(formatDateShort(item.dateISO),colDesc,y+10); doc.setTextColor(31,27,22); doc.setFontSize(10); doc.text(item.project||"Untitled",colDesc+60,y+10); doc.text(`${hrs.toFixed(2)}h`,colHours,y+10,{align:"right"}); doc.text(fmtMoney(hourlyRate),colRate,y+10,{align:"right"}); doc.text(fmtMoney(amt),colAmt,y+10,{align:"right"}); }
         y+=22;
       });
+      // Expenses section in PDF
+      if (expenses.length > 0) {
+        y+=16;
+        doc.setFillColor(248,244,236); doc.roundedRect(margin,y,W-margin*2,22,4,4,"F");
+        doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(107,100,86);
+        doc.text("EXPENSES",colDesc,y+15); doc.text("AMOUNT",colAmt,y+15,{align:"right"});
+        y+=32;
+        doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(31,27,22);
+        expenses.forEach((exp,i) => {
+          if (y>pageH-120) { doc.addPage(); y=margin; }
+          if (i%2===0) { doc.setFillColor(255,250,240); doc.rect(margin,y-4,W-margin*2,22,"F"); }
+          doc.text(exp.description||"Expense",colDesc,y+10);
+          doc.text(fmtMoney(parseFloat(exp.amount)||0),colAmt,y+10,{align:"right"});
+          y+=22;
+        });
+      }
       y+=12; doc.setDrawColor(234,223,199); doc.line(W/2,y,W-margin,y); y+=16;
       const totalsLeft=W/2+10;
       doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(107,100,86);
-      doc.text("Subtotal",totalsLeft,y); doc.text(fmtMoney(subtotal),colAmt,y,{align:"right"}); y+=18;
+      doc.text("Service fee",totalsLeft,y); doc.text(fmtMoney(serviceSubtotal),colAmt,y,{align:"right"}); y+=18;
+      if (expenseTotal>0) { doc.text("Expenses",totalsLeft,y); doc.text(fmtMoney(expenseTotal),colAmt,y,{align:"right"}); y+=18; }
       if (taxRate>0) { doc.text(`Tax (${taxRate}%)`,totalsLeft,y); doc.text(fmtMoney(taxAmount),colAmt,y,{align:"right"}); y+=18; doc.setDrawColor(234,223,199); doc.line(totalsLeft,y,W-margin,y); y+=14; }
       doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(31,27,22);
       doc.text("Total",totalsLeft,y); doc.text(fmtMoney(total),colAmt,y,{align:"right"}); y+=30;
@@ -2099,6 +2530,40 @@ const InvoicingModule = ({ client, patch, profile, pushToast }) => {
           )}
         </Card>
       )}
+      {/* Expenses */}
+      <Card style={{ marginBottom:18 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:T.subtext, letterSpacing:"0.05em", textTransform:"uppercase" }}>Expenses</div>
+            <div style={{ fontSize:11.5, color:T.muted, marginTop:2 }}>Reimbursable costs to pass on to the client</div>
+          </div>
+          {expenseTotal > 0 && <div style={{ fontSize:13.5, fontWeight:700, color:T.text, fontFamily:T.mono }}>{fmtMoney(expenseTotal)}</div>}
+        </div>
+        {expenses.length === 0 ? (
+          <div style={{ padding:"16px 0", textAlign:"center", color:T.muted, fontSize:13, border:`1.5px dashed ${T.border}`, borderRadius:T.radius, background:T.bgSoft }}>
+            No expenses yet — stock photos, contractors, travel, etc.
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
+            {expenses.map((exp, i) => (
+              <div key={exp.id} style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <div style={{ flex:1 }}><TextInput value={exp.description} onChange={e=>updateExpense(exp.id,"description",e.target.value)} placeholder={`Expense ${i+1} — e.g. Stock photos`} /></div>
+                <div style={{ width:130 }}>
+                  <div style={{ position:"relative" }}>
+                    <span style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:T.subtext, fontSize:13, fontWeight:600 }}>$</span>
+                    <TextInput type="number" value={exp.amount} onChange={e=>updateExpense(exp.id,"amount",e.target.value)} placeholder="0.00" style={{ paddingLeft:26 }} />
+                  </div>
+                </div>
+                <button onClick={()=>removeExpense(exp.id)} style={{ color:T.muted, padding:6, flexShrink:0 }} className="nav-item"><Trash size={14}/></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={addExpense} style={{ display:"flex", alignItems:"center", gap:6, fontSize:12.5, fontWeight:600, color:T.subtext, padding:"6px 0", marginTop:8 }} className="nav-item">
+          <PlusCircle size={14}/> Add expense
+        </button>
+      </Card>
+
       <Card style={{ marginBottom:18 }}>
         <div style={{ fontSize:12, fontWeight:700, color:T.subtext, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:14 }}>{t("invoiceDetails")}</div>
         <div className="g3" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:14 }}>
@@ -2119,10 +2584,11 @@ const InvoicingModule = ({ client, patch, profile, pushToast }) => {
       </Card>
       <Card>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ display:"flex", gap:32 }}>
-            <div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>{t("subtotal")}</div><div style={{ fontSize:20, fontWeight:700, color:T.text, fontFamily:T.mono, marginTop:2 }}>{fmtMoney(subtotal)}</div></div>
-            {taxRate>0&&<div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>{t("tax")} ({taxRate}%)</div><div style={{ fontSize:20, fontWeight:700, color:T.text, fontFamily:T.mono, marginTop:2 }}>{fmtMoney(taxAmount)}</div></div>}
-            <div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>{t("totalDue")}</div><div style={{ fontSize:24, fontWeight:800, color:T.text, fontFamily:T.mono, letterSpacing:"-0.02em", marginTop:2 }}>{fmtMoney(total)}</div></div>
+          <div style={{ display:"flex", gap:28, flexWrap:"wrap" }}>
+            <div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Service fee</div><div style={{ fontSize:18, fontWeight:700, color:T.text, fontFamily:T.mono, marginTop:2 }}>{fmtMoney(serviceSubtotal)}</div></div>
+            {expenseTotal > 0 && <div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Expenses</div><div style={{ fontSize:18, fontWeight:700, color:T.amber, fontFamily:T.mono, marginTop:2 }}>+{fmtMoney(expenseTotal)}</div></div>}
+            {taxRate>0&&<div><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>{t("tax")} ({taxRate}%)</div><div style={{ fontSize:18, fontWeight:700, color:T.text, fontFamily:T.mono, marginTop:2 }}>{fmtMoney(taxAmount)}</div></div>}
+            <div style={{ borderLeft:`1px solid ${T.border}`, paddingLeft:28 }}><div style={{ fontSize:11, color:T.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>{t("totalDue")}</div><div style={{ fontSize:24, fontWeight:800, color:T.text, fontFamily:T.mono, letterSpacing:"-0.02em", marginTop:2 }}>{fmtMoney(total)}</div></div>
           </div>
           <PrimaryBtn onClick={downloadPDF} loading={s.pdfLoading}>{t("downloadInvoice")}</PrimaryBtn>
         </div>
@@ -2178,7 +2644,9 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showScratchpad, setShowScratchpad] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(() => localStorage.getItem("bench_tour_done") ? null : 0);
   const [showPalette, setShowPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [closingIds, setClosingIds] = useState(()=>new Set());
@@ -2260,6 +2728,7 @@ export default function App() {
 
   const patchActiveClient = useCallback(partialModules=>{ setClients(prev=>prev.map(c=>c.id===activeClientId?{ ...c, modules:{ ...c.modules, ...partialModules } }:c)); },[activeClientId]);
   const saveContact = useCallback(contact=>{ setClients(prev=>prev.map(c=>c.id===activeClientId?{...c,contact}:c)); },[activeClientId]);
+  const saveScratchpad = useCallback(notes=>{ setClients(prev=>prev.map(c=>c.id===activeClientId?{...c,contact:{...(c.contact||{}),notes}}:c)); },[activeClientId]);
   const addReminder = useCallback(reminder=>{ setClients(prev=>prev.map(c=>c.id===activeClientId?{...c,reminders:[reminder,...(c.reminders||[])]}:c)); },[activeClientId]);
   const dismissReminder = useCallback((clientId,reminderId)=>{ setClients(prev=>prev.map(c=>c.id===clientId?{...c,reminders:(c.reminders||[]).map(r=>r.id===reminderId?{...r,done:true}:r)}:c)); },[]);
 
@@ -2305,13 +2774,38 @@ export default function App() {
                   <GhostBtn style={{ padding:"8px 14px", fontSize:12.5 }} onClick={()=>{ const nm=prompt("Rename client:",activeClient.name); if(nm&&nm.trim()) handleRenameClient(activeClient.id,nm.trim()); }}>{t("rename")}</GhostBtn>
                   <GhostBtn style={{ padding:"8px 14px", fontSize:12.5, display:"flex", alignItems:"center", gap:5 }} onClick={()=>setShowContactModal(true)}><AtSign size={12}/> {t("contact")}</GhostBtn>
                   <GhostBtn style={{ padding:"8px 14px", fontSize:12.5, display:"flex", alignItems:"center", gap:5 }} onClick={()=>setShowReminderModal(true)}><BellRing size={12}/> {t("remind")}</GhostBtn>
+                  <GhostBtn style={{ padding:"8px 14px", fontSize:12.5, display:"flex", alignItems:"center", gap:5, background: showScratchpad ? T.pillAmberBg : T.surface, color: showScratchpad ? T.pillAmberFg : T.subtext, borderColor: showScratchpad ? T.pillAmberFg+"44" : T.border }} onClick={()=>setShowScratchpad(p=>!p)}>
+                    <PenLine size={12}/> Notes{activeClient.contact?.notes ? " •" : ""}
+                  </GhostBtn>
                   {activeClient.contact?.email&&<a href={`mailto:${activeClient.contact.email}`} style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:T.subtext, padding:"4px 8px", borderRadius:8, textDecoration:"none" }} className="nav-item"><Mail size={11}/> {activeClient.contact.email}</a>}
                   {activeClient.contact?.phone&&<span style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:T.subtext }}><Phone size={11}/> {activeClient.contact.phone}</span>}
                 </div>
               </div>
+              {/* Scratchpad panel */}
+              {showScratchpad && (
+                <div className="fade-in" style={{ background: T.pillAmberBg, borderBottom: `1px solid ${T.pillAmberFg}33`, padding: "12px 40px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <PenLine size={13} color={T.pillAmberFg} />
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: T.pillAmberFg, letterSpacing: "0.04em", textTransform: "uppercase" }}>Scratchpad</span>
+                    <span style={{ fontSize: 11, color: T.pillAmberFg, opacity: 0.7, marginLeft: 4 }}>auto-saves</span>
+                  </div>
+                  <textarea
+                    value={activeClient.contact?.notes || ""}
+                    onChange={e => saveScratchpad(e.target.value)}
+                    placeholder={`Jot anything about ${activeClient.name} — meeting notes, ideas, reminders, context...`}
+                    style={{
+                      width: "100%", minHeight: 90, maxHeight: 220,
+                      background: "transparent", border: "none", outline: "none",
+                      fontSize: 14, lineHeight: 1.6, color: T.text,
+                      fontFamily: T.sans, resize: "vertical",
+                    }}
+                  />
+                </div>
+              )}
+
               <main className="module-main" style={{ maxWidth:1280, margin:"0 auto", padding:"32px 48px 80px" }}>
                 <ModuleErrorBoundary key={`${activeClientId}-${activeModule}`}>
-                  <ModuleComp client={activeClient} patch={patchActiveClient} onOpenInvoice={setInvoicePayload} pushToast={pushToast} profile={profile}/>
+                  <ModuleComp client={activeClient} patch={patchActiveClient} onOpenInvoice={setInvoicePayload} pushToast={pushToast} profile={profile} allClients={clients}/>
                 </ModuleErrorBoundary>
               </main>
             </>
@@ -2321,7 +2815,15 @@ export default function App() {
         {showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}
         <ConfirmDeleteModal client={deleteTarget} onConfirm={handleDeleteClient} onCancel={()=>setDeleteTarget(null)}/>
         <InvoiceModal open={!!invoicePayload} onClose={()=>setInvoicePayload(null)} client={invoicePayload?.client||{name:"",modules:{}}} sessions={invoicePayload?.sessions||[]} hourlyRate={invoicePayload?.hourlyRate||0} rangeLabel={invoicePayload?.rangeLabel||""} initialMeta={invoicePayload?.client?.modules?.rate?.invoiceMeta||{}} onSaveMeta={()=>{}} pushToast={pushToast} profile={profile}/>
-        {showSettings&&<SettingsModal profile={profile} onSave={p=>setProfile(p)} onClose={()=>setShowSettings(false)} onExport={handleExport} onImport={handleImport}/>}
+        {showSettings&&<SettingsModal profile={profile} onSave={p=>setProfile(p)} onClose={()=>setShowSettings(false)} onExport={handleExport} onImport={handleImport} onStartTour={()=>{ localStorage.removeItem("bench_tour_done"); setTourStep(0); }}/>}
+        {tourStep !== null && (
+          <TourOverlay
+            step={tourStep}
+            onNext={() => setTourStep(s => s + 1)}
+            onPrev={() => setTourStep(s => Math.max(0, s - 1))}
+            onClose={() => { localStorage.setItem("bench_tour_done", "1"); setTourStep(null); }}
+          />
+        )}
         {showContactModal&&activeClient&&<ClientContactModal client={activeClient} onSave={saveContact} onClose={()=>setShowContactModal(false)}/>}
         {showReminderModal&&activeClient&&<ReminderModal client={activeClient} onSave={addReminder} onClose={()=>setShowReminderModal(false)}/>}
         <CommandPalette open={showPalette} onClose={()=>setShowPalette(false)} clients={clients} activeClientId={activeClientId} onOpenClient={openClient} onOpenModule={openModule} onNewClient={()=>setShowNewClient(true)} onGoDashboard={goDashboard} onShowShortcuts={()=>setShowShortcuts(true)}/>
