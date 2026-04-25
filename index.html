@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F3ECDC" />
+    <title>Stratloom — Freelance OS</title>
+  </head>
+  <body>
+    <script>
+      (function() {
+        var t = localStorage.getItem("stratloom_theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+        var d = localStorage.getItem("stratloom_dir");
+        if (d) document.documentElement.setAttribute("dir", d);
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

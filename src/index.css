@@ -1,0 +1,16 @@
+/* Stratloom global reset.
+   All component styling lives inside App.jsx's GlobalStyles component.
+   This file only ensures the document fills the viewport in the cream tone. */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: #f3ecdc;
+}
+
+body {
+  font-family: "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
+}
