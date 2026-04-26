@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bench — The Freelance OS</title>
+  <meta name="description" content="An AI native OS for the self-employed. Join the waitlist."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#F3ECDC;--bg-soft:#EEE5D0;--bg-deeper:#E8DFC7;
+      --surface:#FFFAF0;--border:#EADFC7;--border-strong:#D9CBAE;
+      --text:#1F1B16;--subtext:#6B6456;--muted:#9A927F;
+      --lilac-bg:#E8DCFA;--lilac-fg:#5B3FAE;
+      --peach-bg:#FBD6BE;--peach-fg:#A24A1F;
+      --amber-bg:#FBE5A6;--amber-fg:#8A5B0B;
+      --blue-bg:#D4E2FB;--blue-fg:#2B4A94;
+      --mint-bg:#D4EBD8;--mint-fg:#2C6B38;
+      --rose-bg:#FBD4DA;--rose-fg:#9C2B47;
+      --shadow:0 2px 8px rgba(60,44,18,0.07);
+      --shadow-card:0 4px 16px rgba(60,44,18,0.08);
+      --shadow-lg:0 16px 48px rgba(60,44,18,0.12);
+      --radius:14px;--radius-lg:20px;--radius-xl:28px;
+      --sans:'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;
+      --serif:'Instrument Serif',Georgia,serif;
+      --mono:'JetBrains Mono',monospace;
+    }
+    html,body{height:100%;overflow:hidden}
+    body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+
+    /* ── BACKGROUND GLOW ── */
+    .bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:
+        radial-gradient(ellipse 70% 55% at 15% 50%,rgba(221,208,245,0.4) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 30%,rgba(212,226,251,0.3) 0%,transparent 55%),
+        radial-gradient(ellipse 40% 40% at 70% 80%,rgba(212,235,216,0.25) 0%,transparent 55%);
+    }
+
+    /* ── LAYOUT ── */
+    .page{position:relative;z-index:1;height:100vh;display:grid;grid-template-columns:1fr 1fr;gap:0;overflow:hidden}
+    @media(max-width:900px){.page{grid-template-columns:1fr;overflow-y:auto;height:auto}}
+
+    /* ── LEFT PANEL ── */
+    .left{display:flex;flex-direction:column;justify-content:center;padding:64px 56px;height:100vh;overflow:hidden}
+    @media(max-width:900px){.left{height:auto;padding:80px 28px 40px}}
+
+    .wordmark{font-size:22px;font-weight:800;letter-spacing:-0.04em;margin-bottom:48px;opacity:0;animation:fadeUp .5s .1s ease forwards}
+    .badge{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--subtext);margin-bottom:24px;box-shadow:var(--shadow);opacity:0;animation:fadeUp .5s .2s ease forwards}
+    .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--mint-fg);animation:blink 2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+    h1{font-size:clamp(36px,4.5vw,58px);font-weight:800;letter-spacing:-0.04em;line-height:1.08;margin-bottom:18px;opacity:0;animation:fadeUp .5s .3s ease forwards}
+    h1 em{font-style:italic;font-family:var(--serif);color:var(--subtext);font-weight:400}
+
+    .sub{font-size:clamp(15px,1.5vw,17px);color:var(--subtext);line-height:1.65;max-width:440px;margin-bottom:36px;opacity:0;animation:fadeUp .5s .4s ease forwards}
+    .sub strong{color:var(--text);font-weight:600}
+
+    /* Form */
+    .form-wrap{opacity:0;animation:fadeUp .5s .5s ease forwards;max-width:420px}
+    .input-row{display:flex;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:6px 6px 6px 20px;box-shadow:var(--shadow-lg);margin-bottom:14px;transition:border-color .2s}
+    .input-row:focus-within{border-color:var(--border-strong)}
+    .input-row input{flex:1;background:transparent;border:none;outline:none;font-family:var(--sans);font-size:15px;color:var(--text)}
+    .input-row input::placeholder{color:var(--muted)}
+    .btn-primary{padding:12px 24px;background:var(--text);color:var(--bg);font-family:var(--sans);font-size:13.5px;font-weight:700;border-radius:999px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .15s}
+    .btn-primary:hover{opacity:.85}
+
+    .meta{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+    .meta-item{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--subtext);font-weight:500}
+    .meta-count{font-weight:700;color:var(--text);font-family:var(--mono)}
+
+    /* ── RIGHT PANEL — CARDS ── */
+    .right{display:flex;flex-direction:column;justify-content:center;padding:64px 48px 64px 16px;gap:14px;height:100vh;overflow:hidden;position:relative}
+    @media(max-width:900px){.right{padding:0 28px 60px;height:auto}}
+
+    /* App card base */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow-card)}
+    .card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+
+    /* Top row — two small cards */
+    .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+    /* Client header card */
+    .client-card{opacity:0;animation:fadeUp .6s .5s ease forwards}
+    .client-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .client-avatar{width:36px;height:36px;border-radius:50%;background:var(--lilac-bg);color:var(--lilac-fg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+    .client-name{font-size:15px;font-weight:700;letter-spacing:-0.01em}
+    .client-meta{font-size:11.5px;color:var(--subtext);margin-top:1px}
+    .status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:var(--mint-bg);color:var(--mint-fg)}
+    .status-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+    .stats-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+    .stat-mini{background:var(--bg-soft);border-radius:10px;padding:10px;text-align:center}
+    .stat-mini-val{font-size:20px;font-weight:800;letter-spacing:-0.03em;font-family:var(--mono)}
+    .stat-mini-label{font-size:9.5px;color:var(--subtext);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+
+    /* Proposal card */
+    .proposal-card{opacity:0;animation:fadeUp .6s .65s ease forwards}
+    .module-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .module-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .module-title{font-size:13.5px;font-weight:700}
+    .ai-badge{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--lilac-bg);color:var(--lilac-fg);margin-left:auto}
+    .proposal-text{font-size:11px;line-height:1.65;color:var(--subtext);background:var(--bg-soft);border-radius:10px;padding:12px}
+    .proposal-text strong{color:var(--text);font-size:11px}
+    .refine-bar{display:flex;align-items:center;gap:8px;margin-top:10px;background:var(--bg-soft);border:1.5px solid var(--border);border-radius:999px;padding:5px 6px 5px 14px}
+    .refine-input{font-size:11px;color:var(--muted);flex:1}
+    .refine-btn{padding:5px 12px;background:var(--text);color:var(--bg);border-radius:999px;font-size:10.5px;font-weight:700;border:none}
+
+    /* Bottom row */
+    .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+    /* Timer card */
+    .timer-card{opacity:0;animation:fadeUp .6s .8s ease forwards}
+    .timer-display{text-align:center;padding:10px 0 6px}
+    .timer-time{font-size:32px;font-weight:700;font-family:var(--mono);letter-spacing:-0.03em}
+    .timer-label{font-size:9.5px;color:var(--subtext);font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+    .timer-sessions{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+    .session-row{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-soft);border-radius:8px}
+    .session-name{font-size:11px;font-weight:500;color:var(--text)}
+    .session-pill{padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:700;background:var(--mint-bg);color:var(--mint-fg)}
+
+    /* Invoice card */
+    .invoice-card{opacity:0;animation:fadeUp .6s .95s ease forwards}
+    .invoice-rows{display:flex;flex-direction:column;gap:6px}
+    .inv-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-soft);border-radius:8px}
+    .inv-desc{font-size:11px;font-weight:500;color:var(--text)}
+    .inv-right{display:flex;align-items:center;gap:6px}
+    .inv-pill{padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:700}
+    .inv-amount{font-size:12.5px;font-weight:700;font-family:var(--mono)}
+    .inv-total{display:flex;justify-content:space-between;align-items:center;padding:10px 10px 0;border-top:1px solid var(--border);margin-top:6px}
+    .inv-total-label{font-size:11px;font-weight:700}
+    .inv-total-amount{font-size:18px;font-weight:800;font-family:var(--mono);letter-spacing:-0.02em}
+
+    /* ── POPUP OVERLAY ── */
+    .popup-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s ease;background:rgba(31,27,22,0.35);backdrop-filter:blur(8px)}
+    .popup-overlay.show{opacity:1;pointer-events:auto}
+    .popup-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:44px 48px;text-align:center;max-width:400px;width:90%;box-shadow:0 32px 80px rgba(0,0,0,0.2);transform:scale(.9) translateY(20px);transition:transform .35s cubic-bezier(0.16,1,0.3,1),opacity .35s ease;opacity:0}
+    .popup-overlay.show .popup-card{transform:scale(1) translateY(0);opacity:1}
+    .popup-emoji{font-size:52px;margin-bottom:16px;display:block;animation:popIn .5s .2s cubic-bezier(0.16,1,0.3,1) both}
+    @keyframes popIn{from{transform:scale(0) rotate(-10deg)}to{transform:scale(1) rotate(0deg)}}
+    .popup-seat{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--mint-fg);background:var(--mint-bg);border-radius:999px;padding:8px 24px;display:inline-block;margin-bottom:16px}
+    .popup-title{font-size:22px;font-weight:800;letter-spacing:-0.02em;margin-bottom:8px}
+    .popup-sub{font-size:14px;color:var(--subtext);line-height:1.6;margin-bottom:28px}
+    .popup-close{padding:12px 28px;background:var(--text);color:var(--bg);font-family:var(--sans);font-size:14px;font-weight:700;border-radius:999px;border:none;cursor:pointer;transition:opacity .15s}
+    .popup-close:hover{opacity:.85}
+
+    /* ── CONFETTI ── */
+    .confetti-wrap{position:fixed;inset:0;z-index:8999;pointer-events:none;overflow:hidden}
+    .confetti-piece{position:absolute;top:-20px;border-radius:3px;opacity:0;animation:fall linear forwards}
+    @keyframes fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<div class="page">
+
+  <!-- ── LEFT ── -->
+  <div class="left">
+    <div class="wordmark">Bench</div>
+
+    <div class="badge">
+      <div class="badge-dot"></div>
+      Private beta · Spring 2026
+    </div>
+
+    <h1>An AI native OS<br/><em>for the self-employed.</em></h1>
+
+    <p class="sub">Proposals, time tracking, client emails, rate calculator, testimonials and daily priorities — <strong>all AI powered</strong>, all in one tab.</p>
+
+    <div class="form-wrap">
+      <form id="waitlist-form" onsubmit="handleSubmit(event)">
+        <div class="input-row">
+          <input type="email" placeholder="your@email.com" required/>
+          <button type="submit" class="btn-primary">Join the waitlist →</button>
+        </div>
+      </form>
+      <div class="meta">
+        <div class="meta-item">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="#2C6B38" stroke-width="1.3"/><path d="M4 6.5l1.8 1.8L9 5" stroke="#2C6B38" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          No credit card
+        </div>
+        <div class="meta-item">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="#8A5B0B" stroke-width="1.3"/><path d="M6.5 3.5v3l1.8 1.3" stroke="#8A5B0B" stroke-width="1.3" stroke-linecap="round"/></svg>
+          $7/month at launch
+        </div>
+        <div class="meta-item">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 10C2 8.3 4 7 6.5 7s4.5 1.3 4.5 3" stroke="#5B3FAE" stroke-width="1.3" stroke-linecap="round"/><circle cx="6.5" cy="4" r="2.2" stroke="#5B3FAE" stroke-width="1.3"/></svg>
+          <span class="meta-count" id="counter">2,418</span> in line
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT — CARDS ── -->
+  <div class="right">
+
+    <!-- Client overview card -->
+    <div class="card client-card">
+      <div class="client-header">
+        <div class="client-avatar">AC</div>
+        <div>
+          <div class="client-name">Acme Corp</div>
+          <div class="client-meta">Brand Identity · Active since Jan 2026</div>
+        </div>
+        <div class="status-pill" style="margin-left:auto"><div class="status-dot"></div>Active</div>
+      </div>
+      <div class="stats-mini">
+        <div class="stat-mini" style="background:var(--lilac-bg)">
+          <div class="stat-mini-val" style="color:var(--lilac-fg)">3</div>
+          <div class="stat-mini-label" style="color:var(--lilac-fg)">Proposals</div>
+        </div>
+        <div class="stat-mini" style="background:var(--mint-bg)">
+          <div class="stat-mini-val" style="color:var(--mint-fg)">42h</div>
+          <div class="stat-mini-label" style="color:var(--mint-fg)">Billed</div>
+        </div>
+        <div class="stat-mini" style="background:var(--amber-bg)">
+          <div class="stat-mini-val" style="color:var(--amber-fg)">$8.4k</div>
+          <div class="stat-mini-label" style="color:var(--amber-fg)">Revenue</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-col row -->
+    <div class="cards-row">
+
+      <!-- Proposal card -->
+      <div class="card proposal-card">
+        <div class="module-header">
+          <div class="module-icon" style="background:var(--lilac-bg)">📄</div>
+          <div class="module-title">Proposals</div>
+          <div class="ai-badge">AI</div>
+        </div>
+        <div class="proposal-text">
+          <strong>Project Understanding:</strong><br/>
+          Acme Corp needs a cohesive brand identity — logo, palette, typography and guidelines.<br/><br/>
+          <strong>Investment:</strong><br/>
+          $4,800 · 50% upfront, 50% on delivery.
+        </div>
+        <div class="refine-bar">
+          <div class="refine-input">Make it shorter…</div>
+          <button class="refine-btn">Refine →</button>
+        </div>
+      </div>
+
+      <!-- Timer card -->
+      <div class="card timer-card">
+        <div class="module-header">
+          <div class="module-icon" style="background:var(--peach-bg)">⏱</div>
+          <div class="module-title">Focus Timer</div>
+          <div style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--mint-fg);animation:blink 1.5s ease-in-out infinite"></div>
+        </div>
+        <div class="timer-display">
+          <div class="timer-time">42:17</div>
+          <div class="timer-label">Billable · Running</div>
+        </div>
+        <div class="timer-sessions">
+          <div class="session-row"><span class="session-name">Brand Identity</span><span class="session-pill">2h 15m</span></div>
+          <div class="session-row"><span class="session-name">Logo Concepts</span><span class="session-pill" style="background:var(--blue-bg);color:var(--blue-fg)">1h 42m</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom row -->
+    <div class="bottom-row">
+
+      <!-- Invoice card -->
+      <div class="card invoice-card">
+        <div class="module-header">
+          <div class="module-icon" style="background:var(--mint-bg)">🧾</div>
+          <div class="module-title">Invoice #008</div>
+        </div>
+        <div class="invoice-rows">
+          <div class="inv-row">
+            <span class="inv-desc">Brand Identity · 42h</span>
+            <div class="inv-right">
+              <span class="inv-pill" style="background:var(--blue-bg);color:var(--blue-fg)">sent</span>
+              <span class="inv-amount">$8,400</span>
+            </div>
+          </div>
+          <div class="inv-row">
+            <span class="inv-desc">Stock photos</span>
+            <div class="inv-right">
+              <span class="inv-pill" style="background:var(--amber-bg);color:var(--amber-fg)">expense</span>
+              <span class="inv-amount">$240</span>
+            </div>
+          </div>
+        </div>
+        <div class="inv-total">
+          <span class="inv-total-label">Total Due</span>
+          <span class="inv-total-amount">$8,640</span>
+        </div>
+      </div>
+
+      <!-- Comms card -->
+      <div class="card" style="opacity:0;animation:fadeUp .6s 1.1s ease forwards">
+        <div class="module-header">
+          <div class="module-icon" style="background:var(--blue-bg)">✉️</div>
+          <div class="module-title">Client Comms</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="padding:5px 10px;border-radius:999px;font-size:10.5px;font-weight:700;background:var(--amber-bg);color:var(--amber-fg)">Scope creep</span>
+          <span style="padding:5px 10px;border-radius:999px;font-size:10.5px;font-weight:700;background:var(--rose-bg);color:var(--rose-fg)">Invoice overdue</span>
+        </div>
+        <div style="font-size:11px;color:var(--subtext);line-height:1.6;background:var(--bg-soft);border-radius:10px;padding:10px">
+          Hi Maya — quick update on the timeline. The discovery deck is ready for your review and I wanted to flag that the additional revisions…
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── CONFETTI ── -->
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- ── SUCCESS POPUP ── -->
+<div class="popup-overlay" id="popup">
+  <div class="popup-card">
+    <span class="popup-emoji">🎉</span>
+    <div class="popup-seat" id="seat-num">Seat #2,419</div>
+    <div class="popup-title">You're on the list.</div>
+    <div class="popup-sub">We'll email you when your seat is ready.<br/>Spring 2026 — first access goes to early signups.</div>
+    <button class="popup-close" onclick="closePopup()">Got it 👋</button>
+  </div>
+</div>
+
+<script>
+  const COLORS = ['#E8DCFA','#FBD6BE','#FBE5A6','#D4E2FB','#D4EBD8','#FBD4DA','#C4A8FF','#FF8060','#60A8FF','#50D080','#FFB840'];
+  let count = 2418;
+
+  function spawnConfetti() {
+    const wrap = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    for (let i = 0; i < 120; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      const size = 7 + Math.random() * 9;
+      const delay = Math.random() * 1.8;
+      const dur = 2.5 + Math.random() * 1.5;
+      el.style.cssText = `
+        left:${Math.random()*100}%;
+        width:${size}px; height:${size}px;
+        background:${COLORS[i % COLORS.length]};
+        border-radius:${Math.random()>.5?'50%':'3px'};
+        animation-duration:${dur}s;
+        animation-delay:${delay}s;
+      `;
+      wrap.appendChild(el);
+    }
+    setTimeout(() => { wrap.innerHTML = ''; }, 5000);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const email = e.target.querySelector('input').value;
+
+    // TODO: POST to your backend/Supabase/Formspree with { email }
+
+    count++;
+    document.getElementById('counter').textContent = count.toLocaleString();
+    document.getElementById('seat-num').textContent = `Seat #${count.toLocaleString()}`;
+
+    spawnConfetti();
+    setTimeout(() => {
+      const popup = document.getElementById('popup');
+      popup.classList.add('show');
+    }, 300);
+  }
+
+  function closePopup() {
+    document.getElementById('popup').classList.remove('show');
+  }
+
+  document.getElementById('popup').addEventListener('click', function(e) {
+    if (e.target === this) closePopup();
+  });
+</script>
+</body>
+</html>
