@@ -817,7 +817,7 @@ const ProposalsModule = ({ client, patch, profile }) => {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {(s.history || []).map((h, i) => (
-                <ProposalHistoryItem key={h.id} h={h} versionNum={(s.history.length) - i} onRestore={() => patch({ proposals: { ...s, output: h.output } })} />
+                <ProposalHistoryItem key={h.id} h={h} versionNum={(s.history.length) - i} onRestore={() => patch({ proposals: { ...s, output: h.output, streaming: false, error: "" } })} />
               ))}
             </div>
           </div>
@@ -1077,6 +1077,7 @@ const RateModule = ({ client, patch, onOpenInvoice }) => {
     const e = parseFloat(s.exp) || 0; const p = parseFloat(s.profit) || 0;
     const d = parseFloat(s.days) || 0; const h = parseFloat(s.hours) || 0;
     if (e <= 0 || d <= 0 || h <= 0 || !s.skill.trim()) { patch({ rate: { ...s, error: "Fill in expenses, days, hours, and your skill." } }); return; }
+    if (p < 0) { patch({ rate: { ...s, error: "Desired profit can't be negative." } }); return; }
     const hourly = Math.ceil((e + p) / (d * h));
     const dayRate = hourly * h; const monthly = dayRate * d;
     const rates = { hourly, dayRate, monthly, hours: h };
@@ -1636,6 +1637,7 @@ const LoginScreen = ({ onAuthenticated }) => {
     setLoading(true);
     const hash = await hashPassword(password);
     localStorage.setItem("stratloom_auth", JSON.stringify({ username:username.trim(), hash }));
+    setLoading(false);
     startSession(); onAuthenticated(username.trim());
   };
   const handleLogin = async () => {
@@ -2391,7 +2393,7 @@ const TimerModule = ({ client, patch, pushToast }) => {
               <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>{t("fixedAmount")}</div>
               <div style={{ position: "relative" }}>
                 <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: T.subtext, fontSize: 14, fontWeight: 600 }}>$</span>
-                <input type="number" value={s.fixedAmount} onChange={e => patch({ timer: { ...s, fixedAmount: e.target.value } })} placeholder="2000" style={{ width: "100%", padding: "11px 14px 11px 28px", fontSize: 14, color: T.text, background: T.surface, fontFamily: T.sans, border: `1.5px solid ${T.border}`, borderRadius: T.radius, boxSizing: "border-box" }} />
+                <input type="number" min="0" value={s.fixedAmount} onChange={e => patch({ timer: { ...s, fixedAmount: e.target.value } })} placeholder="2000" style={{ width: "100%", padding: "11px 14px 11px 28px", fontSize: 14, color: T.text, background: T.surface, fontFamily: T.sans, border: `1.5px solid ${T.border}`, borderRadius: T.radius, boxSizing: "border-box" }} />
               </div>
             </div>
           )}
@@ -2505,6 +2507,12 @@ const InvoicingModule = ({ client, patch, profile, pushToast, allClients }) => {
   const updateExpense = (id, field, value) => patchS({ expenses: expenses.map(e => e.id === id ? { ...e, [field]: value } : e) });
 
   const downloadPDF = async () => {
+    // Block duplicate invoice numbers
+    const existingNumbers = (s.invoiceHistory || []).map(h => h.number);
+    if (s.meta.number && existingNumbers.includes(s.meta.number)) {
+      pushToast?.({ title: "Duplicate invoice number", subtitle: `Invoice #${s.meta.number} already exists. Please use a different number.` });
+      return;
+    }
     patchS({ pdfLoading: true });
     try {
       const JsPDF = await loadJsPDF();
@@ -2606,7 +2614,7 @@ const InvoicingModule = ({ client, patch, profile, pushToast, allClients }) => {
               {s.lineItems.map((item,i) => (
                 <div key={item.id} style={{ display:"flex", gap:8, alignItems:"center" }}>
                   <div style={{ flex:1 }}><TextInput value={item.description} onChange={e=>updateLineItem(item.id,"description",e.target.value)} placeholder={`Item ${i+1} description`} /></div>
-                  <div style={{ width:130 }}><TextInput type="number" value={item.amount} onChange={e=>updateLineItem(item.id,"amount",e.target.value)} placeholder="0.00" /></div>
+                  <div style={{ width:130 }}><TextInput type="number" min="0" value={item.amount} onChange={e=>updateLineItem(item.id,"amount",e.target.value)} placeholder="0.00" /></div>
                   {s.lineItems.length>1&&<button onClick={()=>removeLineItem(item.id)} style={{ color:T.muted, padding:6 }} className="nav-item"><Trash size={14}/></button>}
                 </div>
               ))}
@@ -2757,7 +2765,7 @@ export default function App() {
   useEffect(()=>{ try { localStorage.setItem("stratloom_activeModule",activeModule); } catch {} },[activeModule]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_view",view); } catch {} },[view]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_profile",JSON.stringify(profile)); } catch {} },[profile]);
-  useEffect(()=>{ document.documentElement.setAttribute("data-theme",isDark?"dark":"light"); localStorage.setItem("stratloom_theme",isDark?"dark":"light"); },[isDark]);
+  // Single source of truth for theme — `theme` state drives everything
   useEffect(()=>{ document.documentElement.setAttribute("data-theme",theme); localStorage.setItem("stratloom_theme",theme); },[theme]);
   useEffect(()=>{ document.documentElement.setAttribute("dir",isRTL?"rtl":"ltr"); localStorage.setItem("stratloom_dir",isRTL?"rtl":"ltr"); },[isRTL]);
 
@@ -2806,7 +2814,7 @@ export default function App() {
     };
     window.addEventListener("keydown",onKey);
     return ()=>window.removeEventListener("keydown",onKey);
-  },[view,activeClient,openClients]);
+  },[view,activeClient,openClients,handleCloseClient,openClient]);
 
   // First-run toast
   useEffect(()=>{ const firstRun=!localStorage.getItem("stratloom_firstrun"); if(firstRun&&clients.length>0){ localStorage.setItem("stratloom_firstrun","1"); setTimeout(()=>pushToast({ icon:<Keyboard size={14}/>, title:"Tip: ⌘K opens the command palette", duration:4000 }),1500); } },[]);
@@ -2844,7 +2852,7 @@ export default function App() {
         <div className="app-frame" style={{ flex:1, background:T.bg, borderRadius:20, border:`1px solid ${T.borderStrong}`, boxShadow:"0 8px 40px rgba(60,44,18,0.12)", height:"100%" }}>
         <MobileHeader onOpenMenu={()=>setMobileMenuOpen(true)} clients={clients} onOpenClient={openClient} onDismissReminder={dismissReminder}/>
         <div className={`drawer-backdrop${mobileMenuOpen?" open":""}`} onClick={()=>setMobileMenuOpen(false)}/>
-        <Sidebar view={view} activeModule={activeModule} onGoDashboard={goDashboard} onSelectModule={openModule} clients={clients} openClientIds={openClientIds} activeClientId={activeClientId} onSelectClient={openClient} onDeleteClient={c=>setDeleteTarget(c)} onNewClient={()=>setShowNewClient(true)} onOpenSettings={()=>setShowSettings(true)} profile={profile} isDark={isDark} onToggleDark={()=>setIsDark(d=>!d)} isRTL={isRTL} onToggleRTL={()=>{ const next=!isRTL; localStorage.setItem("stratloom_dir",next?"rtl":"ltr"); document.documentElement.setAttribute("dir",next?"rtl":"ltr"); setIsRTL(next); }} mobileMenuOpen={mobileMenuOpen} onCloseMobile={()=>setMobileMenuOpen(false)}/>
+        <Sidebar view={view} activeModule={activeModule} onGoDashboard={goDashboard} onSelectModule={openModule} clients={clients} openClientIds={openClientIds} activeClientId={activeClientId} onSelectClient={openClient} onDeleteClient={c=>setDeleteTarget(c)} onNewClient={()=>setShowNewClient(true)} onOpenSettings={()=>setShowSettings(true)} profile={profile} isDark={theme==="dark"} onToggleDark={()=>{ const next=theme==="dark"?"light":"dark"; setTheme(next); setIsDark(next==="dark"); }} isRTL={isRTL} onToggleRTL={()=>{ const next=!isRTL; localStorage.setItem("stratloom_dir",next?"rtl":"ltr"); document.documentElement.setAttribute("dir",next?"rtl":"ltr"); setIsRTL(next); }} mobileMenuOpen={mobileMenuOpen} onCloseMobile={()=>setMobileMenuOpen(false)}/>
         <div className="main-offset" style={{ marginLeft:244 }}>
           <div className="tabbar-hide" style={{ display:"contents" }}>
             <TabBar view={view} clients={openClients} activeClientId={activeClientId} onSelectClient={openClient} onCloseClient={handleCloseClient} onNewClient={()=>setShowNewClient(true)} onRenameClient={handleRenameClient} onGoDashboard={goDashboard} onReorder={handleReorder} closingIds={closingIds} notifyIds={notifyIds}/>
