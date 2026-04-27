@@ -17,11 +17,11 @@ import {
 const STRINGS = {
   en: {
     appName: "Bench", appSub: "Freelance OS",
-    dashboard: "Dashboard", modules: "Modules", clients: "Clients", settings: "Settings",
+    dashboard: "Dashboard", modules: "Workspace", clients: "Clients", settings: "Settings",
     newClient: "New Client", deleteClient: "Delete",
     proposals: "Proposals", timer: "Focus Timer", invoicing: "Invoicing",
     contracts: "Contracts", comms: "Client Comms", rate: "Rate Calc",
-    testimonials: "Testimonials", prioritizer: "Prioritizer",
+    testimonials: "Testimonials", prioritizer: "Tasks",
     generate: "Generate", generateProposal: "Generate Proposal →",
     generateContract: "Generate Contract →", copy: "Copy", exportPdf: "Export PDF",
     refine: "Refine →", start: "▶ Start", pause: "⏸ Pause", reset: "↻ Reset",
@@ -368,9 +368,40 @@ const GlobalStyles = () => (
       --t-shadow-card:0 2px 8px rgba(0,0,0,0.5);
       --t-shadow-lg:0 8px 32px rgba(0,0,0,0.7);
     }
+    html[data-theme="grey"] {
+      --t-bg:#F4F4F5; --t-bg-soft:#ECECEE; --t-bg-deeper:#CCCCCE;
+      --t-surface:#FFFFFF; --t-sidebar:#FAFAFA;
+      --t-border:#E4E4E7; --t-border-strong:#D4D4D8;
+      --t-text:#0A0A0B; --t-subtext:#3F3F46; --t-muted:#71717A;
+      --t-bg-inverse:#18181B;
+      --t-lilac:#EDE9FE; --t-peach:#FEF3C7; --t-sky:#DBEAFE; --t-mint:#DCFCE7; --t-butter:#FEF9C3;
+      --t-pill-lilac-bg:#EDE9FE; --t-pill-lilac-fg:#6D28D9;
+      --t-pill-peach-bg:#FFEDD5; --t-pill-peach-fg:#C2410C;
+      --t-pill-amber-bg:#FEF3C7; --t-pill-amber-fg:#92400E;
+      --t-pill-blue-bg:#DBEAFE;  --t-pill-blue-fg:#1D4ED8;
+      --t-pill-mint-bg:#DCFCE7;  --t-pill-mint-fg:#166534;
+      --t-pill-rose-bg:#FFE4E6;  --t-pill-rose-fg:#BE123C;
+      --t-pill-rose-bg-alpha:rgba(255,228,230,0.4);
+      --t-green:#16A34A; --t-red:#DC2626; --t-amber:#D97706;
+      --t-dark:#18181B; --t-dark-surface:#27272A;
+      --t-btn-text:#FFFFFF;
+      --t-shadow:0 1px 2px rgba(0,0,0,0.04);
+      --t-shadow-card:0 2px 8px rgba(0,0,0,0.07);
+      --t-shadow-lg:0 8px 24px rgba(0,0,0,0.10);
+    }
     * { box-sizing:border-box; margin:0; padding:0; }
-    html,body,#root { height:100%; }
-    body { font-family:${T.sans}; background:var(--t-bg); color:var(--t-text); -webkit-font-smoothing:antialiased; font-feature-settings:"ss01"; }
+    html,body,#root { height:100%; overflow:hidden; }
+    body { font-family:${T.sans}; background:var(--t-bg-deeper); color:var(--t-text); -webkit-font-smoothing:antialiased; font-feature-settings:"ss01"; }
+
+    /* ── App frame: contained scroll ── */
+    .app-frame { position:relative !important; overflow:hidden !important; }
+    .app-frame .sidebar-fixed { position:absolute !important; }
+    .app-frame .bell-fixed { position:absolute !important; }
+    .app-frame .help-fixed { position:absolute !important; }
+    .app-frame .toast-stack { position:absolute !important; }
+    .app-frame .main-offset { height:100%; overflow-y:auto; }
+    html[dir="rtl"] .app-frame .sidebar-fixed { left:auto !important; right:0 !important; }
+    html[dir="rtl"] .app-frame .main-offset { margin-left:0 !important; margin-right:244px; }
     button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
     input,textarea { font-family:inherit; color:inherit; }
     input:focus,textarea:focus { outline:none; }
@@ -404,10 +435,14 @@ const GlobalStyles = () => (
     .palette-in{animation:paletteIn 0.22s cubic-bezier(0.16,1,0.3,1) both}
     .notify-pulse{animation:notifyPulse 1.4s ease-in-out 2}
 
-    .scroll-area::-webkit-scrollbar{width:8px;height:8px}
+    .scroll-area::-webkit-scrollbar{width:4px;height:4px}
     .scroll-area::-webkit-scrollbar-track{background:transparent}
-    .scroll-area::-webkit-scrollbar-thumb{background:var(--t-border);border-radius:4px}
-    .scroll-area::-webkit-scrollbar-thumb:hover{background:var(--t-border-strong)}
+    .scroll-area::-webkit-scrollbar-thumb{background:var(--t-border);border-radius:999px;opacity:0.5}
+    .scroll-area::-webkit-scrollbar-thumb:hover{background:var(--t-muted)}
+    .app-frame .main-offset::-webkit-scrollbar{width:4px}
+    .app-frame .main-offset::-webkit-scrollbar-track{background:transparent}
+    .app-frame .main-offset::-webkit-scrollbar-thumb{background:var(--t-border);border-radius:999px}
+    .app-frame .main-offset::-webkit-scrollbar-thumb:hover{background:var(--t-muted)}
 
     .cursor-blink::after{content:'▍';display:inline-block;margin-left:2px;color:var(--t-text);animation:blink 1s infinite;font-weight:400}
     .shimmer-bg{background:linear-gradient(90deg,var(--t-surface) 0%,var(--t-bg) 50%,var(--t-surface) 100%);background-size:200% 100%;animation:shimmer 1.6s ease-in-out infinite}
@@ -1642,9 +1677,9 @@ const TOUR_STEPS = [
   { title: "Welcome to Bench 👋", desc: "Your complete freelance OS — proposals, invoicing, contracts, time tracking, and more. Let's take a 60-second tour.", target: null, pos: "center", emoji: "🚀" },
   { title: "Sidebar Navigation", desc: "Navigate between all 8 modules and your client list from here. Everything is one click away.", target: ".sidebar-fixed", pos: "right", emoji: "🗂" },
   { title: "8 Powerful Modules", desc: "Proposals · Focus Timer · Invoicing · Contracts · Client Comms · Rate Calc · Testimonials · Prioritizer — each built around real freelance workflows.", target: ".sidebar-fixed nav", pos: "right", emoji: "⚡" },
-  { title: "Dark Mode & Arabic", desc: "Switch to dark mode for late-night sessions, or toggle to full Arabic RTL support — both buttons sit at the bottom of the sidebar.", target: ".sidebar-fixed", pos: "right-bottom", emoji: "🌙" },
+  { title: "Dark Mode & Arabic", desc: "Switch to dark mode for late-night sessions, or toggle to full Arabic RTL support — both buttons sit at the bottom of the sidebar.", target: ".sidebar-controls", pos: "right", emoji: "🌙" },
   { title: "Notification Bell", desc: "Get reminded about unpaid invoices, inactive clients, and follow-up reminders — all surfaced here automatically.", target: ".bell-fixed", pos: "left-bottom", emoji: "🔔" },
-  { title: "Client Tabs", desc: "Each client opens in their own tab — close without losing data, reopen from the sidebar. Just like a browser.", target: ".tabbar-hide", pos: "bottom", emoji: "📂" },
+  { title: "Client Tabs", desc: "Each client opens in their own tab — close without losing data, reopen from the sidebar. Just like a browser.", target: ".tabbar-container", pos: "bottom", emoji: "📂" },
   { title: "You're all set! 🎉", desc: "Add your first client and start working. Everything auto-saves. Click the ? button in Settings anytime to replay this tour.", target: null, pos: "center", emoji: "✅" },
 ];
 
@@ -1684,105 +1719,107 @@ const TourOverlay = ({ step, onNext, onPrev, onClose }) => {
   const [rect, setRect] = useState(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [cardPos, setCardPos] = useState({ top: 0, left: 0 });
+  const [mounted, setMounted] = useState(false);
   const s = TOUR_STEPS[step];
   const isLast = step === TOUR_STEPS.length - 1;
   const isFirst = step === 0;
 
+  const PAD = 12;
+  const TW = 320; const TH = 280;
+
+  const calcPos = (r) => {
+    const W = window.innerWidth; const H = window.innerHeight;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    if (!r) return { top: (H - TH) / 2, left: (W - TW) / 2 }; // centered
+    const { top, left, width, height } = r;
+    if (s.pos === "right" || s.pos === "right-bottom") {
+      const t = clamp(s.pos === "right-bottom" ? H - TH - 40 : top + height / 2 - TH / 2, 20, H - TH - 20);
+      return { top: t, left: clamp(left + width + PAD + 14, 20, W - TW - 20) };
+    }
+    if (s.pos === "left-bottom") {
+      return { top: clamp(top + height + 10, 20, H - TH - 20), left: clamp(left - TW - 14, 20, W - TW - 20) };
+    }
+    if (s.pos === "bottom") {
+      return { top: clamp(top + height + PAD + 14, 20, H - TH - 20), left: clamp(left + width / 2 - TW / 2, 20, W - TW - 20) };
+    }
+    return { top: (H - TH) / 2, left: (W - TW) / 2 };
+  };
+
   useEffect(() => {
-    if (!s?.target) { setRect(null); return; }
+    if (!s?.target) { setRect(null); const p = calcPos(null); setCardPos(p); return; }
     const measure = () => {
       const el = document.querySelector(s.target);
-      if (el) { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height }); }
-      else setRect(null);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        const rObj = { top: r.top, left: r.left, width: r.width, height: r.height };
+        setRect(rObj);
+        setCardPos(calcPos(rObj));
+      } else { setRect(null); setCardPos(calcPos(null)); }
     };
     measure();
     const t = setTimeout(measure, 80);
     return () => clearTimeout(t);
   }, [step, s?.target]);
 
+  useEffect(() => { setTimeout(() => setMounted(true), 50); }, []);
+
   if (!s) return null;
 
-  const PAD = 10;
-  const W = window.innerWidth; const H = window.innerHeight;
-  const TW = 320; const TH = 240;
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const handleFinish = () => { setFinishing(true); setTimeout(() => setShowConfetti(true), 400); };
 
-  const getTooltipPos = () => {
-    if (!rect) return null; // handled separately as centered
-    const { top, left, width, height } = rect;
-    if (s.pos === "right" || s.pos === "right-bottom") {
-      const t = clamp(s.pos === "right-bottom" ? H - TH - 24 : top + height / 2 - TH / 2, 16, H - TH - 16);
-      const l = clamp(left + width + PAD + 16, 16, W - TW - 16);
-      return { position: "fixed", top: t, left: l };
-    }
-    if (s.pos === "left-bottom") {
-      const t = clamp(top + height + 8, 16, H - TH - 16);
-      const l = clamp(left - TW - 16, 16, W - TW - 16);
-      return { position: "fixed", top: t, left: l };
-    }
-    if (s.pos === "bottom") {
-      const t = clamp(top + height + PAD + 16, 16, H - TH - 16);
-      const l = clamp(left + width / 2 - TW / 2, 16, W - TW - 16);
-      return { position: "fixed", top: t, left: l };
-    }
-    return null;
+  const cardStyle = {
+    position: "fixed",
+    top: cardPos.top,
+    left: cardPos.left,
+    zIndex: 9001,
+    width: TW,
+    maxWidth: "calc(100vw - 32px)",
+    background: "var(--t-surface)",
+    borderRadius: 18,
+    border: "1px solid var(--t-border)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
+    padding: 26,
+    fontFamily: "var(--t-sans)",
+    opacity: finishing ? 0 : 1,
+    // Smooth animation between positions
+    transition: mounted
+      ? "top 0.45s cubic-bezier(0.16,1,0.3,1), left 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease"
+      : "none",
   };
-
-  const tooltipPos = getTooltipPos();
-  const isCentered = !tooltipPos;
-
-  const handleFinish = () => {
-    setFinishing(true);
-    setTimeout(() => setShowConfetti(true), 400);
-  };
-
-  const card = (
-    <div className="fade-up" onClick={e => e.stopPropagation()} style={{
-      ...(tooltipPos || {}),
-      zIndex: 9001, width: TW, maxWidth: "calc(100vw - 32px)",
-      background: "var(--t-surface)", borderRadius: 18,
-      border: "1px solid var(--t-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
-      padding: 26, fontFamily: "var(--t-sans)",
-    }}>
-      <div style={{ display: "flex", gap: 5, marginBottom: 18 }}>
-        {TOUR_STEPS.map((_, i) => (
-          <div key={i} style={{ height: 4, flex: 1, borderRadius: 999, background: i <= step ? "var(--t-text)" : "var(--t-border)", transition: "background .3s ease" }} />
-        ))}
-      </div>
-      <div style={{ fontSize: 24, marginBottom: 10 }}>{s.emoji}</div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--t-text)", letterSpacing: "-0.02em", marginBottom: 8 }}>{s.title}</div>
-      <div style={{ fontSize: 13.5, color: "var(--t-subtext)", lineHeight: 1.65, marginBottom: 22 }}>{s.desc}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={onClose} style={{ fontSize: 12.5, color: "var(--t-muted)", padding: "6px 0", background: "none", border: "none", cursor: "pointer" }}>
-          {isLast ? "" : "Skip tour"}
-        </button>
-        <div style={{ display: "flex", gap: 8 }}>
-          {!isFirst && (
-            <button onClick={onPrev} style={{ padding: "8px 16px", borderRadius: 999, background: "var(--t-bg-soft)", border: "1px solid var(--t-border)", fontSize: 13, fontWeight: 600, color: "var(--t-subtext)", cursor: "pointer" }}>← Back</button>
-          )}
-          <button onClick={isLast ? handleFinish : onNext} style={{ padding: "8px 22px", borderRadius: 999, background: "var(--t-text)", color: "var(--t-btn-text)", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer" }}>
-            {isLast ? "🎉 Get started" : "Next →"}
-          </button>
-        </div>
-      </div>
-      <div style={{ fontSize: 11, color: "var(--t-muted)", textAlign: "center", marginTop: 14 }}>{step + 1} / {TOUR_STEPS.length}</div>
-    </div>
-  );
 
   return (
     <>
       {!showConfetti && (
         <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(2px)", opacity: finishing ? 0 : 1, transition: "opacity 0.35s ease" }} onClick={finishing ? undefined : onClose} />
+          {/* Overlay — no blur so spotlight content stays sharp */}
+          <div style={{ position:"fixed", inset:0, zIndex:8999, background:"rgba(0,0,0,0.7)", opacity:finishing?0:1, transition:"opacity 0.35s ease" }} onClick={finishing?undefined:onClose} />
+
+          {/* Spotlight — creates the visible cutout, NO blur */}
           {rect && (
-            <div style={{ position: "fixed", zIndex: 9000, pointerEvents: "none", top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, borderRadius: 14, boxShadow: "0 0 0 9999px rgba(0,0,0,0.75)", border: "2px solid rgba(255,255,255,0.3)", opacity: finishing ? 0 : 1, transition: "opacity 0.35s ease" }} />
+            <div style={{ position:"fixed", zIndex:9000, pointerEvents:"none", top:rect.top-PAD, left:rect.left-PAD, width:rect.width+PAD*2, height:rect.height+PAD*2, borderRadius:16, boxShadow:"0 0 0 9999px rgba(0,0,0,0.7)", border:"2px solid rgba(255,255,255,0.35)", opacity:finishing?0:1, transition:"opacity 0.35s ease, top 0.45s cubic-bezier(0.16,1,0.3,1), left 0.45s cubic-bezier(0.16,1,0.3,1), width 0.45s cubic-bezier(0.16,1,0.3,1), height 0.45s cubic-bezier(0.16,1,0.3,1)" }} />
           )}
-          <div style={{ opacity: finishing ? 0 : 1, transition: "opacity 0.3s ease", pointerEvents: finishing ? "none" : "auto" }}>
-            {isCentered ? (
-              <div style={{ position: "fixed", inset: 0, zIndex: 9001, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: finishing ? "none" : "auto" }}>
-                <div style={{ pointerEvents: "auto" }}>{card}</div>
+
+          {/* Card — always fixed positioned, smoothly moves between steps */}
+          <div onClick={e=>e.stopPropagation()} style={cardStyle}>
+            <div style={{ display:"flex", gap:5, marginBottom:18 }}>
+              {TOUR_STEPS.map((_,i)=>(
+                <div key={i} style={{ height:4, flex:1, borderRadius:999, background:i<=step?"var(--t-text)":"var(--t-border)", transition:"background .3s ease" }} />
+              ))}
+            </div>
+            <div style={{ fontSize:24, marginBottom:10 }}>{s.emoji}</div>
+            <div style={{ fontSize:17, fontWeight:700, color:"var(--t-text)", letterSpacing:"-0.02em", marginBottom:8 }}>{s.title}</div>
+            <div style={{ fontSize:13.5, color:"var(--t-subtext)", lineHeight:1.65, marginBottom:22 }}>{s.desc}</div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <button onClick={onClose} style={{ fontSize:12.5, color:"var(--t-muted)", padding:"6px 0", background:"none", border:"none", cursor:"pointer" }}>{isLast?"":"Skip tour"}</button>
+              <div style={{ display:"flex", gap:8 }}>
+                {!isFirst&&<button onClick={onPrev} style={{ padding:"8px 16px", borderRadius:999, background:"var(--t-bg-soft)", border:"1px solid var(--t-border)", fontSize:13, fontWeight:600, color:"var(--t-subtext)", cursor:"pointer" }}>← Back</button>}
+                <button onClick={isLast?handleFinish:onNext} style={{ padding:"8px 22px", borderRadius:999, background:"var(--t-text)", color:"var(--t-btn-text)", fontSize:13, fontWeight:700, border:"none", cursor:"pointer" }}>
+                  {isLast?"🎉 Get started":"Next →"}
+                </button>
               </div>
-            ) : card}
+            </div>
+            <div style={{ fontSize:11, color:"var(--t-muted)", textAlign:"center", marginTop:14 }}>{step+1} / {TOUR_STEPS.length}</div>
           </div>
         </>
       )}
@@ -1791,7 +1828,7 @@ const TourOverlay = ({ step, onNext, onPrev, onClose }) => {
   );
 };
 
-const SettingsModal = ({ profile, onSave, onClose, onExport, onImport, onStartTour }) => {
+const SettingsModal = ({ profile, onSave, onClose, onExport, onImport, onStartTour, currentTheme, onSetTheme }) => {
   const [form, setForm] = useState({ ...profile });
   const logoInputRef = useRef(null);
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
@@ -1799,51 +1836,79 @@ const SettingsModal = ({ profile, onSave, onClose, onExport, onImport, onStartTo
   const handleSignOut = ()=>{ endSession(); window.location.reload(); };
   return (
     <div className="new-client-overlay" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="fade-up" style={{ background:T.surface, borderRadius:T.radiusLg, padding:32, width:480, maxWidth:"90vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <IconBadge size={40}><Settings size={18}/></IconBadge>
-            <div><h2 style={{ fontSize:20, fontWeight:700, letterSpacing:"-0.02em", color:T.text }}>{t("settings")}</h2><p style={{ fontSize:12.5, color:T.subtext, marginTop:2 }}>{t("profileLabel")}</p></div>
-          </div>
-          <button onClick={onClose} style={{ color:T.muted, fontSize:20, padding:"4px 8px" }} className="nav-item">×</button>
+      <div onClick={e=>e.stopPropagation()} className="fade-up" style={{ background:T.surface, borderRadius:T.radiusXl, width:520, maxWidth:"92vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg, overflow:"hidden" }}>
+
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"22px 24px 18px", borderBottom:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:17, fontWeight:700, letterSpacing:"-0.02em", color:T.text }}>Settings</div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", color:T.muted, background:T.bgSoft }} className="nav-item">×</button>
         </div>
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11.5, fontWeight:700, color:T.subtext, letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:10 }}>Company Logo</div>
-          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            <div style={{ width:88, height:54, borderRadius:T.radius, border:`1.5px dashed ${T.borderStrong}`, background:T.bgSoft, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0 }}>
-              {form.logo?<img src={form.logo} alt="logo" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }}/>:<ImageIcon size={22} color={T.muted}/>}
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <GhostBtn onClick={()=>logoInputRef.current?.click()}>{form.logo?t("changeLogo"):t("uploadLogo")}</GhostBtn>
-              {form.logo&&<button onClick={()=>setForm(f=>({...f,logo:null}))} style={{ fontSize:11.5, color:T.muted, textAlign:"left", padding:"2px 0" }} className="nav-item">{t("remove")}</button>}
+
+        <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:20 }}>
+
+          {/* Profile */}
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:12 }}>Profile</div>
+            <div style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+              {/* Logo upload */}
+              <button onClick={()=>logoInputRef.current?.click()} style={{ width:56, height:56, borderRadius:12, border:`1.5px dashed ${T.borderStrong}`, background:T.bgSoft, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, overflow:"hidden", cursor:"pointer", transition:"border-color .15s" }} className="nav-item">
+                {form.logo?<img src={form.logo} alt="logo" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>:<ImageIcon size={20} color={T.muted}/>}
+              </button>
               <input ref={logoInputRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleLogoUpload}/>
-              <p style={{ fontSize:11, color:T.muted, margin:0 }}>PNG or JPG. Appears in all PDFs.</p>
+              <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  <TextInput value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Your name" />
+                  <TextInput value={form.company||""} onChange={e=>setForm(f=>({...f,company:e.target.value}))} placeholder="Company" />
+                </div>
+                <TextInput value={form.email||""} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="Email address" />
+              </div>
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:12 }}>Theme</div>
+            <div style={{ display:"flex", gap:8 }}>
+              {[
+                { key:"light", label:"Warm",  sub:"Cream & pastel",  preview:["#F3ECDC","#FFFAF0","#1F1B16"] },
+                { key:"grey",  label:"Clean", sub:"White & grey",    preview:["#F4F4F5","#FFFFFF","#0A0A0B"] },
+              ].map(t2=>{
+                const active = currentTheme===t2.key;
+                return (
+                  <button key={t2.key} onClick={()=>onSetTheme(t2.key)} style={{ flex:1, padding:"12px", borderRadius:T.radius, border:`1.5px solid ${active?T.text:T.border}`, background:active?T.bgSoft:T.surface, cursor:"pointer", textAlign:"left", transition:"all .15s" }} className="nav-item">
+                    <div style={{ display:"flex", gap:4, marginBottom:8 }}>
+                      {t2.preview.map((c,i)=><div key={i} style={{ width:16, height:16, borderRadius:4, background:c, border:`1px solid ${T.border}` }}/>)}
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{t2.label}</div>
+                    <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>{t2.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Data */}
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:10 }}>Data</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={onExport} style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"9px", borderRadius:T.radius, border:`1px solid ${T.border}`, background:T.surface, fontSize:13, fontWeight:600, color:T.subtext, cursor:"pointer" }} className="nav-item"><Download size={13}/> Export</button>
+              <label style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"9px", borderRadius:T.radius, border:`1px solid ${T.border}`, background:T.surface, fontSize:13, fontWeight:600, color:T.subtext, cursor:"pointer" }}><Upload size={13}/> Import</div>
+                <input type="file" accept=".json" style={{ display:"none" }} onChange={onImport}/>
+              </label>
             </div>
           </div>
         </div>
-        <div className="g2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
-          <Field label={t("yourName")}><TextInput value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Alex Rivera" /></Field>
-          <Field label={t("companyName")}><TextInput value={form.company||""} onChange={e=>setForm(f=>({...f,company:e.target.value}))} placeholder="Studio Noir" /></Field>
-        </div>
-        <Field label={t("email")}><TextInput value={form.email||""} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="alex@studionoir.co" /></Field>
-        <div style={{ marginTop:20, paddingTop:18, borderTop:`1px solid ${T.border}` }}>
-          <div style={{ fontSize:11.5, fontWeight:700, color:T.subtext, letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:10 }}>{t("data")}</div>
-          <div style={{ display:"flex", gap:8 }}>
-            <GhostBtn onClick={onExport} style={{ flex:1, justifyContent:"center", display:"flex", alignItems:"center", gap:6 }}><Download size={13}/> {t("exportBackup")}</GhostBtn>
-            <label style={{ flex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"10px 16px", borderRadius:999, border:`1.5px solid ${T.border}`, fontSize:13, fontWeight:600, color:T.subtext, cursor:"pointer", background:T.surface }}><Upload size={13}/> {t("importBackup")}</div>
-              <input type="file" accept=".json" style={{ display:"none" }} onChange={onImport}/>
-            </label>
-          </div>
-        </div>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:24 }}>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={handleSignOut} style={{ fontSize:13, color:T.pillRoseFg, fontWeight:600, padding:"8px 16px", borderRadius:999, background:T.pillRoseBg }} className="nav-item">{t("signOut")}</button>
-            <button onClick={()=>{ onClose(); onStartTour?.(); }} style={{ fontSize:13, color:T.subtext, fontWeight:600, padding:"8px 14px", borderRadius:999, background:T.bgSoft, border:`1px solid ${T.border}`, display:"flex", alignItems:"center", gap:6 }} className="nav-item">? Tour</button>
+
+        {/* Footer */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 24px", borderTop:`1px solid ${T.border}`, background:T.bgSoft }}>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={handleSignOut} style={{ fontSize:12.5, color:T.pillRoseFg, fontWeight:600, padding:"7px 14px", borderRadius:999, background:T.pillRoseBg, border:"none", cursor:"pointer" }} className="nav-item">Sign out</button>
+            <button onClick={()=>{ onClose(); onStartTour?.(); }} style={{ fontSize:12.5, color:T.subtext, fontWeight:600, padding:"7px 12px", borderRadius:999, background:"transparent", border:`1px solid ${T.border}`, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }} className="nav-item">? Tour</button>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <GhostBtn onClick={onClose}>{t("cancel")}</GhostBtn>
-            <PrimaryBtn onClick={()=>{ onSave(form); onClose(); }}>{t("saveChanges")}</PrimaryBtn>
+            <PrimaryBtn onClick={()=>{ onSave(form); onClose(); }}>Save</PrimaryBtn>
           </div>
         </div>
       </div>
@@ -1865,58 +1930,88 @@ const NAV = [
 
 const Sidebar = ({ view, activeModule, onGoDashboard, onSelectModule, clients, openClientIds, activeClientId, onSelectClient, onDeleteClient, onNewClient, onOpenSettings, profile, isDark, onToggleDark, isRTL, onToggleRTL, mobileMenuOpen, onCloseMobile }) => {
   const openSet = new Set(openClientIds||[]);
+  const avatarInitials = profile?.name ? profile.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase() : "ME";
+
   return (
-    <aside style={{ width:244, background:T.sidebar, borderRight:`1px solid ${T.border}`, position:"fixed", top:0, left:0, bottom:0, display:"flex", flexDirection:"column", padding:"28px 16px 24px", zIndex:10, overflowY:"auto" }} className={`scroll-area sidebar-fixed${mobileMenuOpen?" drawer-open":""}`}>
-      <div style={{ padding:"0 10px 24px" }}>
-        <div style={{ fontSize:26, fontWeight:800, letterSpacing:"-0.04em", color:T.text }}>{t("appName")}</div>
-        <div style={{ fontSize:10.5, color:T.muted, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:700, marginTop:2 }}>{t("appSub")}</div>
+    <aside style={{ width:244, background:T.sidebar, borderRight:`1px solid ${T.border}`, position:"fixed", top:0, left:0, bottom:0, display:"flex", flexDirection:"column", padding:"0", zIndex:10, overflowY:"auto" }} className={`scroll-area sidebar-fixed${mobileMenuOpen?" drawer-open":""}`}>
+
+      {/* ── Logo ── */}
+      <div style={{ padding:"20px 20px 0" }}>
+        <div style={{ fontSize:18, fontWeight:800, letterSpacing:"-0.04em", color:T.text }}>{t("appName")}</div>
+        <div style={{ fontSize:9.5, color:T.muted, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:700, marginTop:1 }}>{t("appSub")}</div>
       </div>
-      <button className={`nav-item ${view==="dashboard"?"active":""}`} onClick={()=>{ onGoDashboard(); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:12, fontSize:13.5, fontWeight:view==="dashboard"?600:500, color:view==="dashboard"?T.text:T.subtext, background:view==="dashboard"?T.bgSoft:"transparent", textAlign:"left", transition:"background .15s ease, color .15s ease", letterSpacing:"-0.005em", marginBottom:20 }}>
-        <span style={{ width:20, display:"flex", alignItems:"center", justifyContent:"center" }}><LayoutDashboard size={16}/></span>
-        <span style={{ flex:1 }}>{t("dashboard")}</span>
-      </button>
-      <div style={{ padding:"0 10px 10px", fontSize:16, fontWeight:700, color:T.text, letterSpacing:"-0.015em" }}>{t("modules")}</div>
-      <nav style={{ display:"flex", flexDirection:"column", gap:2 }}>
-        {NAV.map(item=>{ const active=view==="client"&&activeModule===item.key; return <button key={item.key} className={`nav-item ${active?"active":""}`} onClick={()=>{ onSelectModule(item.key); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:12, fontSize:13.5, fontWeight:active?600:500, color:active?T.text:T.subtext, background:active?T.bgSoft:"transparent", textAlign:"left", transition:"background .15s ease, color .15s ease", letterSpacing:"-0.005em" }}><span style={{ width:20, display:"flex", alignItems:"center", justifyContent:"center" }}>{item.icon}</span><span style={{ flex:1 }}>{item.label}</span></button>; })}
+
+      {/* ── Divider ── */}
+      <div style={{ borderTop:`1px solid ${T.border}`, margin:"14px 16px 10px" }}/>
+
+      {/* ── Dashboard ── */}
+      <div style={{ padding:"0 8px" }}>
+        <button className={`nav-item ${view==="dashboard"?"active":""}`} onClick={()=>{ onGoDashboard(); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:10, width:"100%", fontSize:13, fontWeight:view==="dashboard"?600:500, color:view==="dashboard"?T.text:T.subtext, background:view==="dashboard"?T.bgSoft:"transparent", textAlign:"left", transition:"background .15s, color .15s", letterSpacing:"-0.005em", marginBottom:2 }}>
+          <span style={{ width:18, display:"flex", alignItems:"center", justifyContent:"center", opacity:view==="dashboard"?1:0.7 }}><LayoutDashboard size={15}/></span>
+          <span style={{ flex:1 }}>{t("dashboard")}</span>
+        </button>
+      </div>
+
+      {/* ── Workspace ── */}
+      <div style={{ padding:"10px 18px 6px" }}>
+        <div style={{ fontSize:10.5, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase" }}>{t("modules")}</div>
+      </div>
+      <nav style={{ display:"flex", flexDirection:"column", gap:1, padding:"0 8px" }}>
+        {NAV.map(item=>{ const active=view==="client"&&activeModule===item.key; return (
+          <button key={item.key} className={`nav-item ${active?"active":""}`} onClick={()=>{ onSelectModule(item.key); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:10, fontSize:13, fontWeight:active?600:500, color:active?T.text:T.subtext, background:active?T.bgSoft:"transparent", textAlign:"left", transition:"background .15s, color .15s", letterSpacing:"-0.005em" }}>
+            <span style={{ width:18, display:"flex", alignItems:"center", justifyContent:"center", opacity:active?1:0.65 }}>{item.icon}</span>
+            <span style={{ flex:1 }}>{item.label}</span>
+            {active && <span style={{ width:5, height:5, borderRadius:"50%", background:T.text, flexShrink:0 }}/>}
+          </button>
+        ); })}
       </nav>
-      <div style={{ height:8 }}/>
-      <div style={{ borderTop:`1px solid ${T.border}`, margin:"0 10px 16px" }}/>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 10px 10px" }}>
-        <div style={{ fontSize:16, fontWeight:700, color:T.text, letterSpacing:"-0.015em" }}>{t("clients")}</div>
-        <button onClick={onNewClient} title={`New client`} style={{ width:22, height:22, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, fontSize:16, fontWeight:500 }}>+</button>
+
+      {/* ── Clients ── */}
+      <div style={{ borderTop:`1px solid ${T.border}`, margin:"12px 16px 10px" }}/>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 18px 8px" }}>
+        <div style={{ fontSize:10.5, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase" }}>{t("clients")}</div>
+        <button onClick={onNewClient} style={{ width:20, height:20, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, fontSize:16, fontWeight:400, background:T.bgSoft, border:`1px solid ${T.border}` }} className="nav-item">+</button>
       </div>
-      {clients.length===0?(
-        <div style={{ padding:"18px 14px", margin:"0 4px", textAlign:"center", color:T.muted, fontSize:12, border:`1.5px dashed ${T.border}`, borderRadius:T.radius, background:T.bgSoft, lineHeight:1.5 }}>No clients yet.<br/>Click + to add one.</div>
-      ):(
-        <div style={{ display:"flex", flexDirection:"column", gap:2, padding:"0 4px" }}>
+      {clients.length===0 ? (
+        <div style={{ padding:"14px", margin:"0 8px", textAlign:"center", color:T.muted, fontSize:12, border:`1.5px dashed ${T.border}`, borderRadius:T.radius, background:T.bgSoft, lineHeight:1.5 }}>No clients yet.<br/>Click + to add one.</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:1, padding:"0 8px" }}>
           {clients.map(c=>{ const active=view==="client"&&activeClientId===c.id; const isOpen=openSet.has(c.id); const timerRunning=c.modules.timer.running; const st=getStatus(c); return (
-            <div key={c.id} className={`nav-item sidebar-client-row ${active?"active":""}`} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 8px 8px 10px", borderRadius:10, background:active?T.bgSoft:"transparent", transition:"background .15s ease", position:"relative" }}>
-              <button onClick={()=>{ onSelectClient(c.id); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, textAlign:"left", background:"transparent", padding:0 }}>
-                <div className="letter-avatar" style={{ width:26, height:26, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
+            <div key={c.id} className={`nav-item sidebar-client-row ${active?"active":""}`} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px 7px 10px", borderRadius:10, background:active?T.bgSoft:"transparent", transition:"background .15s", position:"relative" }}>
+              <button onClick={()=>{ onSelectClient(c.id); onCloseMobile?.(); }} style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0, textAlign:"left", background:"transparent", padding:0 }}>
+                <div className="letter-avatar" style={{ width:24, height:24, borderRadius:"50%", background:c.hue.bg, color:c.hue.fg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, flexShrink:0 }}>{c.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
                 <div style={{ minWidth:0, flex:1 }}>
                   <div style={{ fontSize:12.5, fontWeight:active?600:500, color:isOpen?T.text:T.subtext, letterSpacing:"-0.005em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.name}</div>
-                  <div style={{ fontSize:10, color:st.fg, fontWeight:600, marginTop:1 }}>{st.label}</div>
+                  <div style={{ fontSize:9.5, color:st.fg, fontWeight:600, marginTop:1 }}>{st.label}</div>
                 </div>
               </button>
-              {timerRunning&&<span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}
-              <button className="sidebar-delete-btn" onClick={e=>{ e.stopPropagation(); onDeleteClient(c); }} style={{ width:20, height:20, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", color:T.muted, flexShrink:0 }}><XIcon size={11}/></button>
+              {timerRunning&&<span className="pulse" style={{ width:5, height:5, borderRadius:"50%", background:T.green, flexShrink:0 }}/>}
+              <button className="sidebar-delete-btn" onClick={e=>{ e.stopPropagation(); onDeleteClient(c); }} style={{ width:18, height:18, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", color:T.muted, flexShrink:0 }}><XIcon size={10}/></button>
             </div>
           ); })}
         </div>
       )}
+
+      {/* ── Bottom controls ── */}
       <div style={{ flex:1 }}/>
-      <div style={{ padding:12, background:T.bgSoft, border:`1px solid ${T.border}`, borderRadius:T.radius, marginTop:16 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:T.text, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:4 }}>{clients.length} {t("clients")}</div>
-        <div style={{ fontSize:11.5, color:T.subtext, lineHeight:1.5 }}>Close tabs anytime — clients stay here until you delete them.</div>
+
+      {/* ── Profile ── */}
+      <div style={{ margin:"0 10px 8px", padding:"12px" }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:T.text, letterSpacing:"-0.01em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{profile?.name || "Your Name"}</div>
+          {profile?.company && <div style={{ fontSize:11, color:T.subtext, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", fontWeight:500 }}>{profile.company}</div>}
+          <div style={{ fontSize:11, color:T.muted, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{profile?.email || "Set up profile →"}</div>
+        </div>
       </div>
-      <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
-        <button onClick={onOpenSettings} className="nav-item" style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, flex:1, fontSize:13, fontWeight:500, color:T.subtext, textAlign:"left" }}>
-          <span style={{ width:20, display:"flex", alignItems:"center", justifyContent:"center" }}><Settings size={16}/></span>
-          <span style={{ flex:1 }}>{profile?.name?profile.name:t("settings")}</span>
-          {profile?.logo&&<img src={profile.logo} alt="" style={{ width:22, height:22, borderRadius:4, objectFit:"contain", background:T.bg }}/>}
+
+      <div style={{ borderTop:`1px solid ${T.border}`, margin:"0 16px 0" }}/>
+      <div className="sidebar-controls" style={{ padding:"10px 10px 16px", display:"flex", alignItems:"center", gap:4 }}>
+        <button onClick={onOpenSettings} className="nav-item" style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:10, flex:1, fontSize:12.5, fontWeight:500, color:T.subtext, textAlign:"left" }}>
+          <Settings size={14} style={{ flexShrink:0 }}/>
+          <span style={{ flex:1 }}>{t("settings")}</span>
         </button>
-        <button onClick={onToggleDark} title={isDark?"Light mode":"Dark mode"} className="nav-item" style={{ width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, flexShrink:0 }}>{isDark?<Sun size={15}/>:<Moon size={15}/>}</button>
-        <button onClick={onToggleRTL} title={isRTL?"Switch to LTR":"Switch to Arabic"} className="nav-item" style={{ width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", color:isRTL?T.text:T.subtext, flexShrink:0, fontWeight:isRTL?700:500, fontSize:11 }}>{isRTL?"EN":"ع"}</button>
+        <button onClick={onToggleDark} title={isDark?"Light mode":"Dark mode"} className="nav-item" style={{ width:32, height:32, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, flexShrink:0 }}>{isDark?<Sun size={14}/>:<Moon size={14}/>}</button>
+        <button onClick={onToggleRTL} title={isRTL?"Switch to LTR":"Switch to Arabic"} className="nav-item" style={{ width:32, height:32, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", color:isRTL?T.text:T.subtext, flexShrink:0, fontWeight:isRTL?700:500, fontSize:11 }}>{isRTL?"EN":"ع"}</button>
       </div>
     </aside>
   );
@@ -1960,7 +2055,7 @@ const TabBar = ({ view, clients, activeClientId, onSelectClient, onCloseClient, 
   const overflowClients = clients.slice(maxVisible);
 
   return (
-    <div ref={containerRef} style={{ display:"flex", alignItems:"flex-end", gap:2, padding:"14px 20px 0", background:T.bg, borderBottom:`1px solid ${T.border}`, minHeight:52, overflow:"hidden", position:"relative" }}>
+    <div ref={containerRef} className="tabbar-container" style={{ display:"flex", alignItems:"flex-end", gap:2, padding:"14px 20px 0", background:T.bg, borderBottom:`1px solid ${T.border}`, minHeight:52, overflow:"hidden", position:"relative" }}>
       <button onClick={onGoDashboard} title="Dashboard (⌘D)" style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 12px 11px", background:view==="dashboard"?T.surface:"transparent", borderTop:`1px solid ${view==="dashboard"?T.border:"transparent"}`, borderLeft:`1px solid ${view==="dashboard"?T.border:"transparent"}`, borderRight:`1px solid ${view==="dashboard"?T.border:"transparent"}`, borderBottom:view==="dashboard"?`1px solid ${T.surface}`:"1px solid transparent", marginBottom:-1, borderTopLeftRadius:10, borderTopRightRadius:10, cursor:"pointer", fontSize:13, fontWeight:view==="dashboard"?600:500, color:view==="dashboard"?T.text:T.subtext, flexShrink:0, letterSpacing:"-0.005em", transition:"background .15s ease" }} className="tab">
         <LayoutDashboard size={14}/><span>{t("dashboard")}</span>
       </button>
@@ -2637,6 +2732,7 @@ export default function App() {
   const [view, setView] = useState(()=>{ try { return localStorage.getItem("stratloom_view")||"dashboard"; } catch {} return "dashboard"; });
   const [profile, setProfile] = useState(()=>{ try { const s=localStorage.getItem("stratloom_profile"); if(s) return JSON.parse(s); } catch {} return { name:"", company:"", email:"", logo:null }; });
   const [isDark, setIsDark] = useState(()=>localStorage.getItem("stratloom_theme")==="dark");
+  const [theme, setTheme] = useState(()=>localStorage.getItem("stratloom_theme")||"light");
   const [isRTL, setIsRTL] = useState(()=>localStorage.getItem("stratloom_dir")==="rtl");
   const [isAuthenticated, setIsAuthenticated] = useState(()=>isSessionActive());
   const [showNewClient, setShowNewClient] = useState(false);
@@ -2662,6 +2758,7 @@ export default function App() {
   useEffect(()=>{ try { localStorage.setItem("stratloom_view",view); } catch {} },[view]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_profile",JSON.stringify(profile)); } catch {} },[profile]);
   useEffect(()=>{ document.documentElement.setAttribute("data-theme",isDark?"dark":"light"); localStorage.setItem("stratloom_theme",isDark?"dark":"light"); },[isDark]);
+  useEffect(()=>{ document.documentElement.setAttribute("data-theme",theme); localStorage.setItem("stratloom_theme",theme); },[theme]);
   useEffect(()=>{ document.documentElement.setAttribute("dir",isRTL?"rtl":"ltr"); localStorage.setItem("stratloom_dir",isRTL?"rtl":"ltr"); },[isRTL]);
 
   // Initialize active client
@@ -2743,7 +2840,8 @@ export default function App() {
   return (
     <>
       <GlobalStyles/>
-      <div style={{ minHeight:"100vh", background:T.bg }}>
+      <div style={{ height:"100vh", background:theme==="dark"?"#111111":theme==="grey"?"#111111":"#C8BC9E", padding:"10px", display:"flex" }}>
+        <div className="app-frame" style={{ flex:1, background:T.bg, borderRadius:20, border:`1px solid ${T.borderStrong}`, boxShadow:"0 8px 40px rgba(60,44,18,0.12)", height:"100%" }}>
         <MobileHeader onOpenMenu={()=>setMobileMenuOpen(true)} clients={clients} onOpenClient={openClient} onDismissReminder={dismissReminder}/>
         <div className={`drawer-backdrop${mobileMenuOpen?" open":""}`} onClick={()=>setMobileMenuOpen(false)}/>
         <Sidebar view={view} activeModule={activeModule} onGoDashboard={goDashboard} onSelectModule={openModule} clients={clients} openClientIds={openClientIds} activeClientId={activeClientId} onSelectClient={openClient} onDeleteClient={c=>setDeleteTarget(c)} onNewClient={()=>setShowNewClient(true)} onOpenSettings={()=>setShowSettings(true)} profile={profile} isDark={isDark} onToggleDark={()=>setIsDark(d=>!d)} isRTL={isRTL} onToggleRTL={()=>{ const next=!isRTL; localStorage.setItem("stratloom_dir",next?"rtl":"ltr"); document.documentElement.setAttribute("dir",next?"rtl":"ltr"); setIsRTL(next); }} mobileMenuOpen={mobileMenuOpen} onCloseMobile={()=>setMobileMenuOpen(false)}/>
@@ -2815,7 +2913,7 @@ export default function App() {
         {showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}
         <ConfirmDeleteModal client={deleteTarget} onConfirm={handleDeleteClient} onCancel={()=>setDeleteTarget(null)}/>
         <InvoiceModal open={!!invoicePayload} onClose={()=>setInvoicePayload(null)} client={invoicePayload?.client||{name:"",modules:{}}} sessions={invoicePayload?.sessions||[]} hourlyRate={invoicePayload?.hourlyRate||0} rangeLabel={invoicePayload?.rangeLabel||""} initialMeta={invoicePayload?.client?.modules?.rate?.invoiceMeta||{}} onSaveMeta={()=>{}} pushToast={pushToast} profile={profile}/>
-        {showSettings&&<SettingsModal profile={profile} onSave={p=>setProfile(p)} onClose={()=>setShowSettings(false)} onExport={handleExport} onImport={handleImport} onStartTour={()=>{ localStorage.removeItem("bench_tour_done"); setTourStep(0); }}/>}
+        {showSettings&&<SettingsModal profile={profile} onSave={p=>setProfile(p)} onClose={()=>setShowSettings(false)} onExport={handleExport} onImport={handleImport} onStartTour={()=>{ localStorage.removeItem("bench_tour_done"); setTourStep(0); }} currentTheme={theme} onSetTheme={t2=>{ setTheme(t2); setIsDark(t2==="dark"); }}/>}
         {tourStep !== null && (
           <TourOverlay
             step={tourStep}
@@ -2834,6 +2932,7 @@ export default function App() {
           <NotificationBell clients={clients} onOpenClient={openClient} onDismissReminder={dismissReminder}/>
         </div>
         <button onClick={()=>setShowShortcuts(true)} title="Keyboard shortcuts (?)" className="help-fixed nav-item" style={{ position:"fixed", bottom:20, left:260, width:36, height:36, borderRadius:"50%", background:T.surface, border:`1px solid ${T.border}`, boxShadow:T.shadowCard, color:T.subtext, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:700, zIndex:50, transition:"transform .15s ease, box-shadow .15s ease" }} onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=T.shadowLg; }} onMouseLeave={e=>{ e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow=T.shadowCard; }}>?</button>
+        </div>
       </div>
     </>
   );
