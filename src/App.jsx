@@ -3044,7 +3044,7 @@ export default function App() {
   const [isRTL, setIsRTL] = useState(()=>localStorage.getItem("stratloom_dir")==="rtl");
   const [isAuthenticated, setIsAuthenticated] = useState(()=>isSessionActive());
   const [dataLoading, setDataLoading] = useState(true);
-  const [resetMode, setResetMode] = useState(()=> window.location.hash.includes('type=recovery'));
+  const [resetMode, setResetMode] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -3102,6 +3102,14 @@ export default function App() {
   useEffect(()=>{ try { localStorage.setItem("stratloom_activeModule",activeModule); } catch {} },[activeModule]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_view",view); } catch {} },[view]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_profile",JSON.stringify(profile)); } catch {} },[profile]);
+  // Detect Supabase PASSWORD_RECOVERY event (from reset email link)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setResetMode(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Single source of truth for theme — `theme` state drives everything
   useEffect(()=>{ document.documentElement.setAttribute("data-theme",theme); localStorage.setItem("stratloom_theme",theme); },[theme]);
   useEffect(()=>{ document.documentElement.setAttribute("dir",isRTL?"rtl":"ltr"); localStorage.setItem("stratloom_dir",isRTL?"rtl":"ltr"); },[isRTL]);
