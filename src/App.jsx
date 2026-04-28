@@ -240,7 +240,7 @@ const CLIENT_HUES = [
 
 // ─── Auth helpers (Supabase) ─────────────────────
 // We use username@bench.internal as the email so users only type a username
-function usernameToEmail(username) { return `${username.toLowerCase().trim()}@bench.internal`; }
+function usernameToEmail(username) { return `${username.toLowerCase().trim()}@usebench.ai`; }
 async function hashPassword(password) {
   const data = new TextEncoder().encode(password);
   const buf = await crypto.subtle.digest("SHA-256", data);
