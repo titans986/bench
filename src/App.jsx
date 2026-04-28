@@ -2993,25 +2993,25 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [clients, profile]);
 
-  // Load from Supabase on mount (overrides localStorage if cloud data exists)
+  // Load from Supabase when user authenticates
   useEffect(() => {
+    if (!isAuthenticated) return;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('user_data').select('data').eq('id', user.id).single();
-      if (data?.data?.clients?.length) {
-        const empty = emptyModuleState();
-        const migrated = data.data.clients.map(c => {
-          const merged = { ...empty, ...c.modules };
-          merged.invoicing = { ...empty.invoicing, ...c.modules.invoicing };
-          merged.contracts = { ...empty.contracts, ...(c.modules.contracts || {}) };
-          return { status: 'prospect', reminders: [], contact: { email: '', phone: '', website: '', notes: '' }, ...c, modules: merged };
-        });
-        setClients(migrated);
-        if (data.data.profile) setProfile(data.data.profile);
-      }
+      const { data, error } = await supabase.from('user_data').select('data').eq('id', user.id).single();
+      if (error || !data?.data?.clients?.length) return;
+      const empty = emptyModuleState();
+      const migrated = data.data.clients.map(c => {
+        const merged = { ...empty, ...c.modules };
+        merged.invoicing = { ...empty.invoicing, ...c.modules.invoicing };
+        merged.contracts = { ...empty.contracts, ...(c.modules.contracts || {}) };
+        return { status: 'prospect', reminders: [], contact: { email: '', phone: '', website: '', notes: '' }, ...c, modules: merged };
+      });
+      setClients(migrated);
+      if (data.data.profile) setProfile(data.data.profile);
     })();
-  }, []);
+  }, [isAuthenticated]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_openClientIds",JSON.stringify(openClientIds)); } catch {} },[openClientIds]);
   useEffect(()=>{ try { if(activeClientId) localStorage.setItem("stratloom_activeClientId",activeClientId); } catch {} },[activeClientId]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_activeModule",activeModule); } catch {} },[activeModule]);
