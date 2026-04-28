@@ -2986,9 +2986,11 @@ export default function App() {
   // Supabase cloud sync — save on clients change (debounced)
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('[Bench] save: user=', user?.id, 'error=', userError);
       if (!user) return;
-      await supabase.from('user_data').upsert({ id: user.id, data: { clients, openClientIds, activeClientId, activeModule, view, profile }, updated_at: new Date().toISOString() });
+      const { error: saveError } = await supabase.from('user_data').upsert({ id: user.id, data: { clients, openClientIds, activeClientId, activeModule, view, profile }, updated_at: new Date().toISOString() });
+      console.log('[Bench] save result: error=', saveError);
     }, 1500);
     return () => clearTimeout(timer);
   }, [clients, profile]);
