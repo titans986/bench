@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 import {
   LayoutDashboard, FileText, Timer, Mail, Calculator, Star, Target,
   Settings, UserPlus, Image as ImageIcon, PenLine, AlignLeft, Clock,
@@ -232,7 +238,9 @@ const CLIENT_HUES = [
   { bg: T.pillRoseBg,  fg: T.pillRoseFg,  name: "rose"  },
 ];
 
-// ─── Auth helpers ───────────────────────────────
+// ─── Auth helpers (Supabase) ─────────────────────
+// We use username@bench.internal as the email so users only type a username
+function usernameToEmail(username) { return `${username.toLowerCase().trim()}@bench.internal`; }
 async function hashPassword(password) {
   const data = new TextEncoder().encode(password);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -627,7 +635,8 @@ const ErrorBanner = ({ message, onDismiss }) =>
 // ─── Streaming ───────────────────────────────────
 async function streamClaude({ system, user, onChunk, onDone, onError }) {
   try {
-    const res = await fetch("/anthropic/v1/messages", {
+    const apiUrl = import.meta.env.PROD ? '/api/anthropic' : '/anthropic/v1/messages';
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system, messages: [{ role: "user", content: user }] }),
@@ -1619,57 +1628,269 @@ const MobileHeader = ({ onOpenMenu, clients, onOpenClient, onDismissReminder }) 
 );
 
 // ═══════ LOGIN SCREEN ═══════
+function getPasswordStrength(pw) {
+  if (!pw) return { score:0, label:"", color:"var(--t-border)" };
+  let s=0;
+  if (pw.length>=6) s++; if (pw.length>=10) s++;
+  if (/[A-Z]/.test(pw)&&/[a-z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  s=Math.min(4,s);
+  return { score:s, label:["","Weak","Fair","Good","Strong"][s], color:["var(--t-border)","var(--t-pill-rose-fg)","var(--t-amber)","var(--t-pill-blue-fg)","var(--t-pill-mint-fg)"][s] };
+}
+
 const LoginScreen = ({ onAuthenticated }) => {
   const hasAuth = !!getStoredAuth();
-  const [mode, setMode] = useState(hasAuth?"login":"setup");
+  const [mode, setMode] = useState(hasAuth ? "signin" : "signup");
+  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const usernameRef = useRef(null);
-  useEffect(()=>{ usernameRef.current?.focus(); },[]);
+  const [toast, setToast] = useState(null);
+  const inputRef = useRef(null);
+  const isSignup = mode === "signup";
+  const strength = getPasswordStrength(password);
 
-  const handleSetup = async () => {
-    if (!username.trim()) { setError("Please enter a username."); return; }
-    if (password.length<4) { setError("Password must be at least 4 characters."); return; }
-    if (password!==confirm) { setError("Passwords don't match."); return; }
+  useEffect(() => { inputRef.current?.focus(); }, [mode]);
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    setError("");
+    if (!username.trim()) { setError("Please enter your username."); return; }
+    if (!password) { setError("Please enter a password."); return; }
+    if (isSignup && password.length < 4) { setError("Password must be at least 4 characters."); return; }
     setLoading(true);
-    const hash = await hashPassword(password);
-    localStorage.setItem("stratloom_auth", JSON.stringify({ username:username.trim(), hash }));
+    const email = usernameToEmail(username);
+    if (isSignup) {
+      const { error: signUpError } = await supabase.auth.signUp({ email, password, options: { data: { username: username.trim(), display_name: name.trim() || username.trim() } } });
+      if (signUpError) { setError(signUpError.message === "User already registered" ? "Username already taken." : signUpError.message); setLoading(false); return; }
+      showToast(`Welcome${name ? `, ${name.split(" ")[0]}` : ""} — Bench is ready`);
+      setTimeout(() => { startSession(); onAuthenticated(username.trim()); }, 1200);
+    } else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) { setError("Incorrect username or password."); setLoading(false); return; }
+      showToast("Welcome back — opening your Bench");
+      setTimeout(() => { startSession(); onAuthenticated(username.trim()); }, 900);
+    }
     setLoading(false);
-    startSession(); onAuthenticated(username.trim());
   };
-  const handleLogin = async () => {
-    if (!username.trim()||!password) { setError("Please fill in all fields."); return; }
-    setLoading(true);
-    const stored = getStoredAuth();
-    const hash = await hashPassword(password);
-    if (stored?.username===username.trim()&&stored?.hash===hash) { startSession(); onAuthenticated(username.trim()); }
-    else { setError("Incorrect username or password."); setLoading(false); }
-  };
-  const onKey = e=>{ if(e.key==="Enter") mode==="setup"?handleSetup():handleLogin(); };
 
   return (
-    <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans }}>
-      <div className="fade-up" style={{ background:T.surface, borderRadius:T.radiusXl, padding:"44px 40px", width:400, maxWidth:"90vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg }}>
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ fontSize:30, fontWeight:800, letterSpacing:"-0.04em", color:T.text }}>{t("appName")}</div>
-          <div style={{ fontSize:10.5, color:T.muted, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:700, marginTop:3 }}>{t("appSub")}</div>
+    <>
+      <style>{`
+        @keyframes float-blob { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-6%,4%) scale(1.04)} 66%{transform:translate(5%,-3%) scale(0.98)} }
+        .login-page { min-height:100vh; background:var(--t-bg-deeper); display:flex; align-items:center; justify-content:center; padding:24px; font-family:${T.sans}; }
+        .login-card { width:100%; max-width:1000px; background:var(--t-surface); border:1px solid var(--t-border); border-radius:28px; box-shadow:0 24px 80px rgba(31,27,22,.14); overflow:hidden; display:grid; grid-template-columns:1fr 1fr; min-height:680px; }
+        .login-hero { position:relative; padding:28px; overflow:hidden; display:flex; flex-direction:column; }
+        .login-hero-inner { background:var(--t-surface); border-radius:20px; border:1px solid var(--t-border); flex:1; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; padding:26px 28px 30px; }
+        .login-blob { position:absolute; inset:-20% -10% -20% 10%; background:radial-gradient(60% 50% at 70% 55%,#F4B997 0%,transparent 65%),radial-gradient(45% 40% at 40% 70%,#f7c9a8 0%,transparent 70%),radial-gradient(70% 60% at 80% 30%,#fad4b8 0%,transparent 70%); filter:blur(22px) saturate(1.05); animation:float-blob 18s ease-in-out infinite; pointer-events:none; }
+        .login-grain { position:absolute; inset:0; background-image:radial-gradient(rgba(31,27,22,.06) 1px,transparent 1px); background-size:3px 3px; mix-blend-mode:multiply; opacity:.5; pointer-events:none; }
+        .login-brand { display:inline-flex; align-items:center; gap:9px; position:relative; z-index:2; }
+        .login-brand-mark { width:30px; height:30px; border-radius:9px; background:var(--t-text); color:var(--t-bg); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; letter-spacing:-0.04em; font-family:${T.mono}; }
+        .login-brand-name { font-size:17px; font-weight:800; letter-spacing:-0.04em; color:var(--t-text); }
+        .login-brand-sub { font-size:11px; font-weight:500; color:var(--t-subtext); letter-spacing:.02em; }
+        .login-foot { position:relative; z-index:2; }
+        .login-eyebrow { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:var(--t-subtext); letter-spacing:.08em; text-transform:uppercase; margin-bottom:12px; }
+        .login-eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--t-pill-peach-fg); }
+        .login-headline { font-size:38px; line-height:1.06; font-weight:700; letter-spacing:-0.035em; color:var(--t-text); margin-bottom:18px; }
+        .login-headline em { font-family:'Instrument Serif',Georgia,serif; font-style:italic; font-weight:400; }
+        .login-pills { display:flex; flex-wrap:wrap; gap:6px; }
+        .login-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 8px; font-size:11px; font-weight:600; border-radius:999px; background:var(--t-surface); border:1px solid var(--t-border); color:var(--t-subtext); backdrop-filter:blur(6px); }
+        .login-pill::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.6; }
+        .login-pill.lilac { background:var(--t-pill-lilac-bg); color:var(--t-pill-lilac-fg); border-color:transparent; }
+        .login-pill.peach { background:var(--t-pill-peach-bg); color:var(--t-pill-peach-fg); border-color:transparent; }
+        .login-pill.mint  { background:var(--t-pill-mint-bg);  color:var(--t-pill-mint-fg);  border-color:transparent; }
+        .login-pill.blue  { background:var(--t-pill-blue-bg);  color:var(--t-pill-blue-fg);  border-color:transparent; }
+        .login-form-side { padding:48px 56px; display:flex; flex-direction:column; justify-content:center; background:var(--t-surface); min-height:680px; }
+        .login-form-inner { width:100%; max-width:340px; margin:0 auto; }
+        .login-form-body { min-height:520px; display:flex; flex-direction:column; }
+        .login-tabs { align-self:flex-end; display:inline-flex; background:var(--t-bg); border:1px solid var(--t-border); border-radius:999px; padding:3px; margin-bottom:22px; font-size:12px; font-weight:600; }
+        .login-tab { padding:6px 14px; border-radius:999px; color:var(--t-subtext); transition:all .18s ease; letter-spacing:-0.005em; background:none; border:none; cursor:pointer; font-family:${T.sans}; font-size:12px; font-weight:600; }
+        .login-tab.active { background:var(--t-text); color:var(--t-surface); box-shadow:0 1px 4px rgba(31,27,22,.18); }
+        .login-asterisk { display:inline-block; color:var(--t-pill-peach-fg); font-family:'Instrument Serif',Georgia,serif; font-size:26px; line-height:1; margin-bottom:8px; }
+        .login-title { font-size:26px; font-weight:700; letter-spacing:-0.03em; color:var(--t-text); margin-bottom:5px; line-height:1.15; }
+        .login-sub { font-size:12.5px; color:var(--t-subtext); line-height:1.5; margin-bottom:22px; }
+        .lf { margin-bottom:12px; }
+        .lf-label { display:block; font-size:11px; font-weight:700; color:var(--t-subtext); letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px; }
+        .lf-wrap { position:relative; display:flex; align-items:center; background:var(--t-surface); border:1.5px solid var(--t-border); border-radius:10px; transition:border-color .15s,box-shadow .15s; }
+        .lf-wrap:focus-within { border-color:var(--t-text); box-shadow:0 0 0 3px var(--t-border-strong); }
+        .lf-wrap.err { border-color:var(--t-pill-rose-fg); box-shadow:0 0 0 3px var(--t-pill-rose-bg); }
+        .lf-wrap input { flex:1; padding:11px 13px; font-size:13.5px; background:transparent; border:none; color:var(--t-text); letter-spacing:-0.005em; font-family:${T.sans}; outline:none; }
+        .lf-wrap input::placeholder { color:var(--t-muted); }
+        .lf-affix { padding:0 10px; color:var(--t-muted); display:flex; align-items:center; }
+        .lf-eye { width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:var(--t-muted); border-radius:6px; transition:background .15s,color .15s; margin-right:4px; background:none; border:none; cursor:pointer; }
+        .lf-eye:hover { background:var(--t-bg-soft); color:var(--t-text); }
+        .lf-err { margin-top:8px; padding:8px 12px; background:var(--t-pill-rose-bg); color:var(--t-pill-rose-fg); border-radius:8px; font-size:12px; font-weight:500; display:flex; align-items:center; gap:7px; }
+        .lf-strength { display:flex; gap:4px; margin-top:7px; }
+        .lf-strength-seg { flex:1; height:3px; border-radius:2px; transition:background .25s; }
+        .lf-strength-lbl { font-size:10.5px; font-weight:600; letter-spacing:.03em; margin-top:5px; text-transform:uppercase; font-family:${T.mono}; }
+        .lf-remember { display:flex; justify-content:space-between; align-items:center; margin:12px 0 16px; }
+        .lf-check { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--t-subtext); font-weight:500; cursor:pointer; }
+        .lf-check input { display:none; }
+        .lf-check-box { width:15px; height:15px; border:1.5px solid var(--t-border-strong); border-radius:4px; background:var(--t-surface); display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; }
+        .lf-check input:checked + .lf-check-box { background:var(--t-text); border-color:var(--t-text); }
+        .lf-check input:checked + .lf-check-box::after { content:""; width:7px; height:3.5px; border-left:1.5px solid var(--t-surface); border-bottom:1.5px solid var(--t-surface); transform:rotate(-45deg) translateY(-1px); }
+        .lf-forgot { font-size:12px; color:var(--t-text); font-weight:600; text-decoration:none; background:none; border:none; cursor:pointer; font-family:${T.sans}; }
+        .lf-forgot:hover { color:var(--t-pill-peach-fg); }
+        .lf-submit { width:100%; padding:12px 18px; background:var(--t-text); color:var(--t-surface); border-radius:10px; font-size:13.5px; font-weight:600; letter-spacing:-0.005em; display:flex; align-items:center; justify-content:center; gap:7px; transition:transform .15s,box-shadow .15s; box-shadow:0 6px 18px rgba(31,27,22,.18); border:none; cursor:pointer; font-family:${T.sans}; }
+        .lf-submit:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 10px 24px rgba(31,27,22,.24); }
+        .lf-submit:disabled { opacity:.55; cursor:not-allowed; }
+        .lf-divider { display:flex; align-items:center; gap:10px; margin:18px 0 12px; font-size:11px; color:var(--t-muted); font-weight:500; letter-spacing:.03em; }
+        .lf-divider::before,.lf-divider::after { content:""; flex:1; height:1px; background:var(--t-border); }
+        .lf-oauth { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+        .lf-oauth-btn { padding:10px; background:var(--t-surface); border:1.5px solid var(--t-border); border-radius:10px; display:flex; align-items:center; justify-content:center; transition:all .15s; cursor:pointer; }
+        .lf-oauth-btn:hover { border-color:var(--t-border-strong); background:var(--t-bg-soft); transform:translateY(-1px); }
+        .lf-foot { text-align:center; margin-top:18px; font-size:12px; color:var(--t-subtext); }
+        .lf-foot button { color:var(--t-pill-peach-fg); font-weight:700; background:none; border:none; cursor:pointer; font-family:${T.sans}; font-size:12px; }
+        .lf-foot button:hover { text-decoration:underline; }
+        .lf-toast { position:fixed; bottom:24px; right:24px; background:var(--t-text); color:var(--t-surface); padding:11px 16px; border-radius:10px; font-size:13px; font-weight:600; box-shadow:0 12px 40px rgba(31,27,22,.22); display:flex; align-items:center; gap:9px; animation:fadeUp .25s cubic-bezier(.16,1,.3,1) both; z-index:999; font-family:${T.sans}; }
+        .lf-toast-dot { width:7px; height:7px; border-radius:50%; background:var(--t-mint); }
+        .lf-spinner { width:13px; height:13px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+        @media(max-width:820px){ .login-card{grid-template-columns:1fr; min-height:0;} .login-hero{padding:18px;} .login-hero-inner{min-height:220px;} .login-headline{font-size:28px;} .login-form-side{padding:32px 24px; min-height:0;} }
+        @media(max-width:520px){ .login-form-side{padding:24px 18px;} .login-headline{font-size:24px;} }
+      `}</style>
+
+      <div className="login-page">
+        <div className="login-card fade-up">
+
+          {/* Hero */}
+          <div className="login-hero">
+            <div className="login-hero-inner">
+              <div className="login-blob"/>
+              <div className="login-grain"/>
+              <div className="login-brand">
+                <div className="login-brand-mark">B</div>
+                <div>
+                  <div className="login-brand-name">Bench</div>
+                  <div className="login-brand-sub">Freelance OS</div>
+                </div>
+              </div>
+              <div className="login-foot">
+                <div className="login-eyebrow">Your workspace, finally</div>
+                <h1 className="login-headline">Proposals, time, invoices —<br/><em>in one quiet place.</em></h1>
+                <div className="login-pills">
+                  <span className="login-pill lilac">Proposals</span>
+                  <span className="login-pill peach">Focus Timer</span>
+                  <span className="login-pill mint">Invoicing</span>
+                  <span className="login-pill blue">Contracts</span>
+                  <span className="login-pill">+ 4 more</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="login-form-side">
+            <div className="login-form-inner">
+              <div className="login-tabs">
+                <button className={`login-tab${!isSignup?" active":""}`} onClick={()=>{ setMode("signin"); setError(""); }}>Sign in</button>
+                <button className={`login-tab${isSignup?" active":""}`} onClick={()=>{ setMode("signup"); setError(""); }}>Create account</button>
+              </div>
+
+              <div className="login-form-body">
+                <div>
+                  <div className="login-asterisk">✻</div>
+                  <h2 className="login-title">{isSignup ? "Create your Bench." : "Welcome back."}</h2>
+                  <p className="login-sub">{isSignup ? "One Bench for proposals, time, invoices, and more." : "Sign in to pick up where you left off."}</p>
+                </div>
+
+                <form onSubmit={submit} noValidate>
+                  {isSignup && (
+                    <div className="lf">
+                      <label className="lf-label">Your name</label>
+                      <div className="lf-wrap">
+                        <input type="text" placeholder="Alex Rivera" value={name} onChange={e=>setName(e.target.value)} autoComplete="name"/>
+                      </div>
+                    </div>
+                  )}
+                  <div className="lf">
+                    <label className="lf-label">Username</label>
+                    <div className={`lf-wrap${error.toLowerCase().includes("username")?" err":""}`}>
+                      <input ref={inputRef} type="text" placeholder="yourname" value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }} autoComplete="username"/>
+                    </div>
+                  </div>
+                  <div className="lf">
+                    <label className="lf-label">{isSignup ? "Create password" : "Password"}</label>
+                    <div className={`lf-wrap${error.toLowerCase().includes("password")?" err":""}`}>
+                      <input type={showPw?"text":"password"} placeholder={isSignup?"8+ characters":"Your password"} value={password} onChange={e=>{ setPassword(e.target.value); setError(""); }} autoComplete={isSignup?"new-password":"current-password"}/>
+                      <button type="button" className="lf-eye" onClick={()=>setShowPw(s=>!s)}>
+                        {showPw
+                          ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                          : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        }
+                      </button>
+                    </div>
+                    {isSignup && password && (
+                      <>
+                        <div className="lf-strength">
+                          {[1,2,3,4].map(i=><div key={i} className="lf-strength-seg" style={{ background: i<=strength.score ? strength.color : "var(--t-border)" }}/>)}
+                        </div>
+                        <div className="lf-strength-lbl" style={{ color: strength.color }}>{strength.label || "—"}</div>
+                      </>
+                    )}
+                  </div>
+
+                  {!isSignup && (
+                    <div className="lf-remember">
+                      <label className="lf-check">
+                        <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>
+                        <span className="lf-check-box"/>
+                        Stay signed in
+                      </label>
+                      <button type="button" className="lf-forgot">Forgot password?</button>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="lf-err">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      {error}
+                    </div>
+                  )}
+
+                  <button type="submit" className="lf-submit" disabled={loading} style={{ marginTop: isSignup ? 16 : 0 }}>
+                    {loading
+                      ? <><span className="lf-spinner"/> {isSignup ? "Creating Bench…" : "Signing in…"}</>
+                      : <>{isSignup ? "Create Bench" : "Sign in"} <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>
+                    }
+                  </button>
+                </form>
+
+                <div className="lf-divider">or continue with</div>
+                <div className="lf-oauth">
+                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
+                    <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.83Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38Z"/></svg>
+                  </button>
+                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.6-4.04-1.6-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.31-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.31-.54-1.54.12-3.21 0 0 1.01-.32 3.31 1.23a11.5 11.5 0 0 1 6.02 0c2.3-1.55 3.31-1.23 3.31-1.23.66 1.67.25 2.9.12 3.21.77.84 1.24 1.91 1.24 3.23 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg>
+                  </button>
+                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.49c0-2.5 2.05-3.7 2.14-3.76-1.17-1.71-2.99-1.94-3.63-1.97-1.55-.16-3.02.91-3.81.91-.79 0-1.99-.89-3.27-.86-1.69.02-3.24.98-4.11 2.49-1.75 3.04-.45 7.54 1.26 10.01.84 1.21 1.84 2.57 3.15 2.52 1.27-.05 1.75-.82 3.28-.82 1.53 0 1.96.82 3.3.79 1.36-.02 2.22-1.23 3.06-2.45.96-1.41 1.36-2.78 1.38-2.85-.03-.01-2.65-1.02-2.68-4.01ZM13.94 4.74c.7-.85 1.17-2.04 1.04-3.22-1.01.04-2.23.67-2.95 1.52-.65.75-1.22 1.96-1.07 3.12 1.13.09 2.28-.57 2.98-1.42Z"/></svg>
+                  </button>
+                </div>
+
+                <div className="lf-foot">
+                  {isSignup
+                    ? <>Already have a Bench? <button onClick={()=>{ setMode("signin"); setError(""); }}>Sign in</button></>
+                    : <>New to Bench? <button onClick={()=>{ setMode("signup"); setError(""); }}>Create a Bench</button></>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:18, fontWeight:700, letterSpacing:"-0.02em", color:T.text, marginBottom:4 }}>{mode==="setup"?t("createYourAccount"):t("welcomeBack")}</div>
-          <div style={{ fontSize:13, color:T.subtext }}>{mode==="setup"?"Set a username and password to protect your workspace.":"Sign in to your workspace."}</div>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <Field label={t("username")}><TextInput ref={usernameRef} value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }} onKeyDown={onKey} placeholder="yourname" /></Field>
-          <Field label={t("password")}><TextInput type="password" value={password} onChange={e=>{ setPassword(e.target.value); setError(""); }} onKeyDown={onKey} placeholder="••••••••" /></Field>
-          {mode==="setup"&&<Field label={t("confirmPassword")}><TextInput type="password" value={confirm} onChange={e=>{ setConfirm(e.target.value); setError(""); }} onKeyDown={onKey} placeholder="••••••••" /></Field>}
-        </div>
-        {error&&<div style={{ marginTop:12, padding:"10px 14px", background:T.pillRoseBg, borderRadius:T.radius, color:T.pillRoseFg, fontSize:12.5 }}>{error}</div>}
-        <PrimaryBtn onClick={mode==="setup"?handleSetup:handleLogin} loading={loading} style={{ width:"100%", marginTop:20, justifyContent:"center" }}>{mode==="setup"?t("createAccount"):t("signIn")}</PrimaryBtn>
       </div>
-    </div>
+
+      {toast && (
+        <div className="lf-toast">
+          <span className="lf-toast-dot"/> {toast}
+        </div>
+      )}
+    </>
   );
 };
 
@@ -1835,7 +2056,7 @@ const SettingsModal = ({ profile, onSave, onClose, onExport, onImport, onStartTo
   const logoInputRef = useRef(null);
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const handleLogoUpload = e=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=ev=>setForm(f=>({...f,logo:ev.target.result})); reader.readAsDataURL(file); };
-  const handleSignOut = ()=>{ endSession(); window.location.reload(); };
+  const handleSignOut = async ()=>{ await supabase.auth.signOut(); endSession(); window.location.reload(); };
   return (
     <div className="new-client-overlay" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="fade-up" style={{ background:T.surface, borderRadius:T.radiusXl, width:520, maxWidth:"92vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg, overflow:"hidden" }}>
@@ -2760,6 +2981,36 @@ export default function App() {
 
   // Persistence
   useEffect(()=>{ try { localStorage.setItem("stratloom_clients",JSON.stringify(clients)); } catch {} },[clients]);
+
+  // Supabase cloud sync — save on clients change (debounced)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('user_data').upsert({ id: user.id, data: { clients, openClientIds, activeClientId, activeModule, view, profile }, updated_at: new Date().toISOString() });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [clients, profile]);
+
+  // Load from Supabase on mount (overrides localStorage if cloud data exists)
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('user_data').select('data').eq('id', user.id).single();
+      if (data?.data?.clients?.length) {
+        const empty = emptyModuleState();
+        const migrated = data.data.clients.map(c => {
+          const merged = { ...empty, ...c.modules };
+          merged.invoicing = { ...empty.invoicing, ...c.modules.invoicing };
+          merged.contracts = { ...empty.contracts, ...(c.modules.contracts || {}) };
+          return { status: 'prospect', reminders: [], contact: { email: '', phone: '', website: '', notes: '' }, ...c, modules: merged };
+        });
+        setClients(migrated);
+        if (data.data.profile) setProfile(data.data.profile);
+      }
+    })();
+  }, []);
   useEffect(()=>{ try { localStorage.setItem("stratloom_openClientIds",JSON.stringify(openClientIds)); } catch {} },[openClientIds]);
   useEffect(()=>{ try { if(activeClientId) localStorage.setItem("stratloom_activeClientId",activeClientId); } catch {} },[activeClientId]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_activeModule",activeModule); } catch {} },[activeModule]);
@@ -2814,7 +3065,7 @@ export default function App() {
     };
     window.addEventListener("keydown",onKey);
     return ()=>window.removeEventListener("keydown",onKey);
-  },[view,activeClient,openClients,handleCloseClient,openClient]);
+  },[view,activeClient,openClients]); // handleCloseClient & openClient are stable useCallback refs, defined after this effect
 
   // First-run toast
   useEffect(()=>{ const firstRun=!localStorage.getItem("stratloom_firstrun"); if(firstRun&&clients.length>0){ localStorage.setItem("stratloom_firstrun","1"); setTimeout(()=>pushToast({ icon:<Keyboard size={14}/>, title:"Tip: ⌘K opens the command palette", duration:4000 }),1500); } },[]);
@@ -2841,6 +3092,27 @@ export default function App() {
   const handleImport = useCallback(e=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=ev=>{ try { const data=JSON.parse(ev.target.result); if(data.clients) setClients(data.clients); if(data.openClientIds) setOpenClientIds(data.openClientIds); if(data.activeClientId) setActiveClientId(data.activeClientId); if(data.activeModule) setActiveModule(data.activeModule); if(data.view) setView(data.view); if(data.profile) setProfile(data.profile); pushToast({ icon:<Upload size={14}/>, title:t("backupImported") }); } catch { pushToast({ title:t("importFailed") }); } }; reader.readAsText(file); },[pushToast]);
 
   const ModuleComp = MODULE_COMPONENTS[activeModule] || MODULE_COMPONENTS["proposals"];
+
+  // Block mobile devices
+  const isMobileDevice = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+  if (isMobileDevice) {
+    return (
+      <>
+        <GlobalStyles/>
+        <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:32, fontFamily:T.sans, textAlign:"center" }}>
+          <div className="fade-up" style={{ maxWidth:360 }}>
+            <div style={{ fontSize:48, marginBottom:20 }}>🖥</div>
+            <div style={{ fontSize:22, fontWeight:800, letterSpacing:"-0.03em", color:T.text, marginBottom:12 }}>Bench is built for desktop</div>
+            <div style={{ fontSize:15, color:T.subtext, lineHeight:1.6, marginBottom:28 }}>Open Bench on your laptop or desktop computer for the full experience — proposals, invoicing, contracts, and more.</div>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 18px", background:T.bgSoft, borderRadius:999, border:`1px solid ${T.border}`, fontSize:13, color:T.muted, fontWeight:500 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              usebench.ai
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!isAuthenticated) { return (<><GlobalStyles/><LoginScreen onAuthenticated={()=>setIsAuthenticated(true)}/></>); }
   if (clients.length===0) { return (<><GlobalStyles/><OnboardingScreen onNewClient={()=>setShowNewClient(true)}/>{showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}</>); }
