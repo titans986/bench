@@ -2965,6 +2965,7 @@ export default function App() {
   const [theme, setTheme] = useState(()=>localStorage.getItem("stratloom_theme")||"light");
   const [isRTL, setIsRTL] = useState(()=>localStorage.getItem("stratloom_dir")==="rtl");
   const [isAuthenticated, setIsAuthenticated] = useState(()=>isSessionActive());
+  const [dataLoading, setDataLoading] = useState(true);
   const [showNewClient, setShowNewClient] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -2987,31 +2988,34 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(async () => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('[Bench] save: user=', user?.id, 'error=', userError);
       if (!user) return;
-      const { error: saveError } = await supabase.from('user_data').upsert({ id: user.id, data: { clients, openClientIds, activeClientId, activeModule, view, profile }, updated_at: new Date().toISOString() });
-      console.log('[Bench] save result: error=', saveError);
+      await supabase.from('user_data').upsert({ id: user.id, data: { clients, openClientIds, activeClientId, activeModule, view, profile }, updated_at: new Date().toISOString() });
     }, 1500);
     return () => clearTimeout(timer);
   }, [clients, profile]);
 
   // Load from Supabase when user authenticates
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) { setDataLoading(false); return; }
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase.from('user_data').select('data').eq('id', user.id).single();
-      if (error || !data?.data?.clients?.length) return;
-      const empty = emptyModuleState();
-      const migrated = data.data.clients.map(c => {
-        const merged = { ...empty, ...c.modules };
-        merged.invoicing = { ...empty.invoicing, ...c.modules.invoicing };
-        merged.contracts = { ...empty.contracts, ...(c.modules.contracts || {}) };
-        return { status: 'prospect', reminders: [], contact: { email: '', phone: '', website: '', notes: '' }, ...c, modules: merged };
-      });
-      setClients(migrated);
-      if (data.data.profile) setProfile(data.data.profile);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setDataLoading(false); return; }
+        const { data, error } = await supabase.from('user_data').select('data').eq('id', user.id).single();
+        if (!error && data?.data?.clients?.length) {
+          const empty = emptyModuleState();
+          const migrated = data.data.clients.map(c => {
+            const merged = { ...empty, ...c.modules };
+            merged.invoicing = { ...empty.invoicing, ...c.modules.invoicing };
+            merged.contracts = { ...empty.contracts, ...(c.modules.contracts || {}) };
+            return { status: 'prospect', reminders: [], contact: { email: '', phone: '', website: '', notes: '' }, ...c, modules: merged };
+          });
+          setClients(migrated);
+          if (data.data.profile) setProfile(data.data.profile);
+        }
+      } finally {
+        setDataLoading(false);
+      }
     })();
   }, [isAuthenticated]);
   useEffect(()=>{ try { localStorage.setItem("stratloom_openClientIds",JSON.stringify(openClientIds)); } catch {} },[openClientIds]);
@@ -3118,6 +3122,7 @@ export default function App() {
   }
 
   if (!isAuthenticated) { return (<><GlobalStyles/><LoginScreen onAuthenticated={()=>setIsAuthenticated(true)}/></>); }
+  if (dataLoading) { return (<><GlobalStyles/><div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}><div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}><div style={{ width:36, height:36, border:`3px solid ${T.border}`, borderTopColor:T.text, borderRadius:"50%", animation:"spin .7s linear infinite" }}/><div style={{ fontSize:13, color:T.muted, fontFamily:T.sans }}>Loading your workspace…</div></div></div></>); }
   if (clients.length===0) { return (<><GlobalStyles/><OnboardingScreen onNewClient={()=>setShowNewClient(true)}/>{showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}</>); }
 
   return (
