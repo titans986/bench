@@ -1628,6 +1628,44 @@ const MobileHeader = ({ onOpenMenu, clients, onOpenClient, onDismissReminder }) 
 );
 
 // ═══════ LOGIN SCREEN ═══════
+const ResetPasswordScreen = ({ onDone }) => {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    if (password.length < 4) { setError("Password must be at least 4 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+    setLoading(true);
+    const { error: err } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setDone(true);
+    setTimeout(onDone, 2000);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.sans, padding:24 }}>
+      <div className="fade-up" style={{ background:T.surface, borderRadius:T.radiusXl, padding:"44px 40px", width:400, maxWidth:"90vw", border:`1px solid ${T.border}`, boxShadow:T.shadowLg }}>
+        <div style={{ fontSize:28, marginBottom:8 }}>🔑</div>
+        <div style={{ fontSize:22, fontWeight:800, letterSpacing:"-0.03em", color:T.text, marginBottom:6 }}>{done ? "Password updated!" : "Set new password"}</div>
+        <div style={{ fontSize:13.5, color:T.subtext, marginBottom:24 }}>{done ? "Redirecting you to sign in…" : "Choose a new password for your Bench account."}</div>
+        {!done && (
+          <form onSubmit={submit} noValidate style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <Field label="New password"><TextInput type="password" value={password} onChange={e=>{ setPassword(e.target.value); setError(""); }} placeholder="••••••••" /></Field>
+            <Field label="Confirm password"><TextInput type="password" value={confirm} onChange={e=>{ setConfirm(e.target.value); setError(""); }} placeholder="••••••••" /></Field>
+            {error && <div style={{ padding:"10px 14px", background:T.pillRoseBg, borderRadius:T.radius, color:T.pillRoseFg, fontSize:12.5 }}>{error}</div>}
+            <PrimaryBtn loading={loading} style={{ width:"100%", marginTop:4, justifyContent:"center" }}>Update password</PrimaryBtn>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function getPasswordStrength(pw) {
   if (!pw) return { score:0, label:"", color:"var(--t-border)" };
   let s=0;
@@ -1649,12 +1687,26 @@ const LoginScreen = ({ onAuthenticated }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
   const inputRef = useRef(null);
   const isSignup = mode === "signup";
   const strength = getPasswordStrength(password);
 
-  useEffect(() => { inputRef.current?.focus(); }, [mode]);
+  useEffect(() => { inputRef.current?.focus(); }, [mode, forgotMode]);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+
+  const handleForgot = async (e) => {
+    e?.preventDefault?.();
+    if (!forgotEmail.trim()) { setError("Please enter your email."); return; }
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), { redirectTo: window.location.origin });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setForgotSent(true);
+    setError("");
+  };
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -1791,6 +1843,32 @@ const LoginScreen = ({ onAuthenticated }) => {
                 <button className={`login-tab${isSignup?" active":""}`} onClick={()=>{ setMode("signup"); setError(""); }}>Create account</button>
               </div>
 
+              {forgotMode ? (
+                <div className="login-form-body">
+                  <div>
+                    <div className="login-asterisk">✉</div>
+                    <h2 className="login-title">{forgotSent ? "Check your inbox." : "Reset password."}</h2>
+                    <p className="login-sub">{forgotSent ? `We sent a reset link to ${forgotEmail}. Click it to set a new password.` : "Enter your email and we'll send you a reset link."}</p>
+                  </div>
+                  {!forgotSent && (
+                    <form onSubmit={handleForgot} noValidate style={{ marginTop:8 }}>
+                      <div className="lf">
+                        <label className="lf-label">Email</label>
+                        <div className={`lf-wrap${error?" err":""}`}>
+                          <input ref={inputRef} type="email" placeholder="you@studio.co" value={forgotEmail} onChange={e=>{ setForgotEmail(e.target.value); setError(""); }} autoComplete="email"/>
+                        </div>
+                      </div>
+                      {error && <div className="lf-err"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>{error}</div>}
+                      <button type="submit" className="lf-submit" disabled={loading} style={{ marginTop:16 }}>
+                        {loading ? <><span className="lf-spinner"/> Sending…</> : <>Send reset link <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
+                      </button>
+                    </form>
+                  )}
+                  <div className="lf-foot" style={{ marginTop: forgotSent ? 24 : 16 }}>
+                    <button onClick={()=>{ setForgotMode(false); setError(""); }}>← Back to sign in</button>
+                  </div>
+                </div>
+              ) : (
               <div className="login-form-body">
                 <div>
                   <div className="login-asterisk">✻</div>
@@ -1841,7 +1919,7 @@ const LoginScreen = ({ onAuthenticated }) => {
                         <span className="lf-check-box"/>
                         Stay signed in
                       </label>
-                      <button type="button" className="lf-forgot">Forgot password?</button>
+                      <button type="button" className="lf-forgot" onClick={()=>{ setForgotMode(true); setError(""); setForgotSent(false); setForgotEmail(username); }}>Forgot password?</button>
                     </div>
                   )}
 
@@ -1880,6 +1958,7 @@ const LoginScreen = ({ onAuthenticated }) => {
                   }
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -2965,6 +3044,7 @@ export default function App() {
   const [isRTL, setIsRTL] = useState(()=>localStorage.getItem("stratloom_dir")==="rtl");
   const [isAuthenticated, setIsAuthenticated] = useState(()=>isSessionActive());
   const [dataLoading, setDataLoading] = useState(true);
+  const [resetMode, setResetMode] = useState(()=> window.location.hash.includes('type=recovery'));
   const [showNewClient, setShowNewClient] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -3120,6 +3200,7 @@ export default function App() {
     );
   }
 
+  if (resetMode) { return (<><GlobalStyles/><ResetPasswordScreen onDone={()=>{ setResetMode(false); window.location.hash=''; }}/></>); }
   if (!isAuthenticated) { return (<><GlobalStyles/><LoginScreen onAuthenticated={()=>setIsAuthenticated(true)}/></>); }
   if (dataLoading) { return (<><GlobalStyles/><div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}><div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}><div style={{ width:36, height:36, border:`3px solid ${T.border}`, borderTopColor:T.text, borderRadius:"50%", animation:"spin .7s linear infinite" }}/><div style={{ fontSize:13, color:T.muted, fontFamily:T.sans }}>Loading your workspace…</div></div></div></>); }
   if (clients.length===0) { return (<><GlobalStyles/><OnboardingScreen onNewClient={()=>setShowNewClient(true)}/>{showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}</>); }
