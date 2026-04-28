@@ -1640,8 +1640,7 @@ function getPasswordStrength(pw) {
 }
 
 const LoginScreen = ({ onAuthenticated }) => {
-  const hasAuth = !!getStoredAuth();
-  const [mode, setMode] = useState(hasAuth ? "signin" : "signup");
+  const [mode, setMode] = useState("signin");
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -2194,7 +2193,7 @@ const Sidebar = ({ view, activeModule, onGoDashboard, onSelectModule, clients, o
       <div style={{ borderTop:`1px solid ${T.border}`, margin:"12px 16px 10px" }}/>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 18px 8px" }}>
         <div style={{ fontSize:10.5, fontWeight:700, color:T.muted, letterSpacing:"0.07em", textTransform:"uppercase" }}>{t("clients")}</div>
-        <button onClick={onNewClient} style={{ width:20, height:20, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, fontSize:16, fontWeight:400, background:T.bgSoft, border:`1px solid ${T.border}` }} className="nav-item">+</button>
+        <button onClick={onNewClient} style={{ width:20, height:20, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", color:T.subtext, background:T.bgSoft, border:`1px solid ${T.border}` }} className="nav-item"><Plus size={11}/></button>
       </div>
       {clients.length===0 ? (
         <div style={{ padding:"14px", margin:"0 8px", textAlign:"center", color:T.muted, fontSize:12, border:`1.5px dashed ${T.border}`, borderRadius:T.radius, background:T.bgSoft, lineHeight:1.5 }}>No clients yet.<br/>Click + to add one.</div>
