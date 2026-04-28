@@ -240,7 +240,7 @@ const CLIENT_HUES = [
 
 // ─── Auth helpers (Supabase) ─────────────────────
 // We use username@bench.internal as the email so users only type a username
-function usernameToEmail(username) { return `${username.toLowerCase().trim()}@example.com`; }
+function usernameToEmail(username) { return username.toLowerCase().trim(); }
 async function hashPassword(password) {
   const data = new TextEncoder().encode(password);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -1660,7 +1660,8 @@ const LoginScreen = ({ onAuthenticated }) => {
   const submit = async (e) => {
     e?.preventDefault?.();
     setError("");
-    if (!username.trim()) { setError("Please enter your username."); return; }
+    if (!username.trim()) { setError("Please enter your email."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) { setError("Please enter a valid email address."); return; }
     if (!password) { setError("Please enter a password."); return; }
     if (isSignup && password.length < 4) { setError("Password must be at least 4 characters."); return; }
     setLoading(true);
@@ -1808,9 +1809,9 @@ const LoginScreen = ({ onAuthenticated }) => {
                     </div>
                   )}
                   <div className="lf">
-                    <label className="lf-label">Username</label>
-                    <div className={`lf-wrap${error.toLowerCase().includes("username")?" err":""}`}>
-                      <input ref={inputRef} type="text" placeholder="yourname" value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }} autoComplete="username"/>
+                    <label className="lf-label">Email</label>
+                    <div className={`lf-wrap${error.toLowerCase().includes("email")?" err":""}`}>
+                      <input ref={inputRef} type="email" placeholder="you@studio.co" value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }} autoComplete="email"/>
                     </div>
                   </div>
                   <div className="lf">
