@@ -1721,7 +1721,7 @@ const LoginScreen = ({ onAuthenticated }) => {
       const { error: signUpError } = await supabase.auth.signUp({ email, password, options: { data: { username: username.trim(), display_name: name.trim() || username.trim() } } });
       if (signUpError) { setError(signUpError.message === "User already registered" ? "Username already taken." : signUpError.message); setLoading(false); return; }
       showToast(`Welcome${name ? `, ${name.split(" ")[0]}` : ""} — Bench is ready`);
-      setTimeout(() => { startSession(); onAuthenticated(username.trim()); }, 1200);
+      setTimeout(() => { startSession(); onAuthenticated(username.trim(), { name: name.trim(), email: username.trim() }); }, 1200);
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) { setError("Incorrect username or password."); setLoading(false); return; }
@@ -1939,15 +1939,10 @@ const LoginScreen = ({ onAuthenticated }) => {
                 </form>
 
                 <div className="lf-divider">or continue with</div>
-                <div className="lf-oauth">
-                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
+                <div style={{ display:"flex", justifyContent:"center" }}>
+                  <button className="lf-oauth-btn" onClick={()=>showToast("Google sign-in coming soon")} style={{ padding:"10px 32px" }}>
                     <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.83Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38Z"/></svg>
-                  </button>
-                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.6-4.04-1.6-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.31-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.31-.54-1.54.12-3.21 0 0 1.01-.32 3.31 1.23a11.5 11.5 0 0 1 6.02 0c2.3-1.55 3.31-1.23 3.31-1.23.66 1.67.25 2.9.12 3.21.77.84 1.24 1.91 1.24 3.23 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg>
-                  </button>
-                  <button className="lf-oauth-btn" onClick={()=>showToast("OAuth coming soon")}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.49c0-2.5 2.05-3.7 2.14-3.76-1.17-1.71-2.99-1.94-3.63-1.97-1.55-.16-3.02.91-3.81.91-.79 0-1.99-.89-3.27-.86-1.69.02-3.24.98-4.11 2.49-1.75 3.04-.45 7.54 1.26 10.01.84 1.21 1.84 2.57 3.15 2.52 1.27-.05 1.75-.82 3.28-.82 1.53 0 1.96.82 3.3.79 1.36-.02 2.22-1.23 3.06-2.45.96-1.41 1.36-2.78 1.38-2.85-.03-.01-2.65-1.02-2.68-4.01ZM13.94 4.74c.7-.85 1.17-2.04 1.04-3.22-1.01.04-2.23.67-2.95 1.52-.65.75-1.22 1.96-1.07 3.12 1.13.09 2.28-.57 2.98-1.42Z"/></svg>
+                    <span style={{ marginLeft:8, fontSize:13, fontWeight:600, color:"var(--t-text)" }}>Continue with Google</span>
                   </button>
                 </div>
 
@@ -3209,7 +3204,7 @@ export default function App() {
   }
 
   if (resetMode) { return (<><GlobalStyles/><ResetPasswordScreen onDone={()=>{ setResetMode(false); window.location.hash=''; }}/></>); }
-  if (!isAuthenticated) { return (<><GlobalStyles/><LoginScreen onAuthenticated={()=>setIsAuthenticated(true)}/></>); }
+  if (!isAuthenticated) { return (<><GlobalStyles/><LoginScreen onAuthenticated={(_, profileData)=>{ if (profileData?.name || profileData?.email) setProfile(p=>({ ...p, ...profileData })); setIsAuthenticated(true); }}/></>); }
   if (dataLoading) { return (<><GlobalStyles/><div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}><div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}><div style={{ width:36, height:36, border:`3px solid ${T.border}`, borderTopColor:T.text, borderRadius:"50%", animation:"spin .7s linear infinite" }}/><div style={{ fontSize:13, color:T.muted, fontFamily:T.sans }}>Loading your workspace…</div></div></div></>); }
   if (clients.length===0) { return (<><GlobalStyles/><OnboardingScreen onNewClient={()=>setShowNewClient(true)}/>{showNewClient&&<NewClientModal onCreate={handleNewClient} onCancel={()=>setShowNewClient(false)}/>}</>); }
 
